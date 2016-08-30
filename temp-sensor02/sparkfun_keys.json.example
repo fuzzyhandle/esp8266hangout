@@ -1,0 +1,9 @@
+{
+	"title": "My Tile",
+	"outputUrl": "http://data.sparkfun.com/output/SOMEJUNKHERE",
+	"inputUrl": "http://data.sparkfun.com/input/SOMEJUNKHERE",
+	"manageUrl": "http://data.sparkfun.com/streams/SOMEJUNKHERE",
+	"publicKey": "SOMEJUNKHERE",
+	"privateKey": "SOMEPRIVATEKEY",
+	"deleteKey": "SOMEDELETEKEY"
+}
