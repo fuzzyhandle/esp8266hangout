@@ -1,0 +1,6 @@
+{
+	"username": "ADAFRUIT USERNAME",
+	"aiokey": "ADAFRUIT API TOKEN",
+	"servername": "io.adafruit.com",
+	"port": 1883
+}
