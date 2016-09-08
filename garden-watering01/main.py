@@ -47,11 +47,11 @@ def read_from_cloud(feedname):
   adafruitconfig = get_adafruit_config()
   url = "http://" + adafruitconfig['servername'] + "/api/feeds/" + feedname
   #url = "http://io.adafruit.com/api/feeds/" + feedname
-  print (url)
-  print (adafruitconfig['aiokey'])
+  #print (url)
+  #print (adafruitconfig['aiokey'])
   headers = {'X-AIO-Key':adafruitconfig['aiokey']}
   resp = urequests.request("GET", url, headers=headers)
-  print (resp.content)
+  #print (resp.content)
   respdata = resp.json()
   return  respdata['last_value'] 
   
@@ -86,11 +86,23 @@ if __name__ == "__main__":
   import network
   wlan = network.WLAN(network.STA_IF)
   
-  wificonnected = False
+  # wificonnected = False
+  # for i in range (60):
+    # if wlan.isconnected():
+      # wificonnected = True
+      # break
+    # else:
+      # time.sleep(1)
+
+  # if not wificonnected:
+    # print ("No Wifi. Going to sleep")
+    # mybuddy.deepsleep(2*60*1000)
+    
   for i in range (60):
     if wlan.isconnected():
       wificonnected = True
-      break
+      if mybuddy.have_internet():
+        break
     else:
       time.sleep(1)
 
@@ -106,8 +118,12 @@ if __name__ == "__main__":
     mybuddy.deepsleep(2*60*1000)
     
   rtcdata['ntptime'] = time.time()
-  post_to_cloud('i-am-alive', time.time())
-
+  post_to_cloud('i-am-alive', rtcdata['ntptime'])
+  
+  #Micropython has no timezone support. Timezone is always UTC.
+  #Bad Hack. 
+  #Add the Delta for India Time
+  localtime = time.localtime(rtcdata['ntptime']+ 19800) 
   
   #Read data from Cloud
   lastwateringtime = int(read_from_cloud ('last-watering-time'))
@@ -116,24 +132,38 @@ if __name__ == "__main__":
   
   wateringdosageduration = int(read_from_cloud ('water-dosage-length'))
   wateringdosageinterval = 60* 60* int(read_from_cloud ('water-dosage-frequency'))
-  #No data of last watering
-  #Water immediately
-  if rtcdata.get('lastwateringtime',0) == 0:
-    waternow(wateringdosageduration)
-    rtcdata['lastwateringtime'] = time.time()
-    post_to_cloud('last-watering-time',rtcdata['lastwateringtime'])
-  else:
-    #Check if delta has expired
-    if rtcdata['lastwateringtime'] + wateringdosageinterval <= time.time():
+  wateringsystemstatus = (read_from_cloud ('watering-system-automation') == 'ON')
+  wateringearliestpossiblehour = int(read_from_cloud ('earliest-morning-watering-time'))
+  wateringlatestpossiblehour = int(read_from_cloud ('latest-afternoon-watering-time'))
+  
+  validhour = True
+  print ("Hour of the day is %d"%(localtime[3]))
+  if ((localtime[3] < wateringearliestpossiblehour) or (localtime[3] >= wateringlatestpossiblehour)):
+    validhour = False
+
+  print ("Watering system is Enabled" if wateringsystemstatus  else "Watering system is Disabled")  
+  print ("Current Time is within the watering hours window" if validhour  else "Current Time is outside the watering hours window")  
+
+  if wateringsystemstatus and validhour:
+    #No data of last watering
+    #Water immediately
+    if rtcdata.get('lastwateringtime',0) == 0:
       waternow(wateringdosageduration)
       rtcdata['lastwateringtime'] = time.time()
       post_to_cloud('last-watering-time',rtcdata['lastwateringtime'])
+    else:
+      #Check if delta has expired
+      if rtcdata['lastwateringtime'] + wateringdosageinterval <= time.time():
+        waternow(wateringdosageduration)
+        rtcdata['lastwateringtime'] = time.time()
+        post_to_cloud('last-watering-time',rtcdata['lastwateringtime'])
 
   rtcdata['wateringdosageduration'] = wateringdosageduration
   rtcdata['wateringdosageinterval'] = wateringdosageinterval
   rtcdata['i-am-alive'] = time.time()
-  
-  post_to_cloud('next-watering-in', rtcdata['lastwateringtime'] + rtcdata['wateringdosageinterval'] - rtcdata['ntptime'])    
+
+  if wateringsystemstatus:
+    post_to_cloud('next-watering-in', rtcdata['lastwateringtime'] + rtcdata['wateringdosageinterval'] - rtcdata['ntptime'])
   
   if True:
     import json
