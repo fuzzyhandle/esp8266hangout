@@ -1,5 +1,13 @@
 import machine
 
+def have_internet():
+  import urequests
+  try:
+    resp = urequests.request("HEAD", "http://jsonip.com/")
+    return True
+  except:
+    return False
+
 def setntptime(maxretries=10):
   # ntptime is a helper module which gets packaged into the firmware
   # Check https://raw.githubusercontent.com/micropython/micropython/master/esp8266/scripts/ntptime.py
