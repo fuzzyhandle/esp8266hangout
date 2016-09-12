@@ -17,7 +17,7 @@ for x in range (3):
   time.sleep (1)
 print ("")
 
-def waternow(pulseduration=10):
+def dowatering(pulseduration=10):
   print ("Watering started")
   #GPIO Pin 5 aka D1 is connected to relay signal pin
   wateringpumprelayPin = machine.Pin(5, machine.Pin.OUT,value=0)
@@ -143,20 +143,23 @@ if __name__ == "__main__":
 
   print ("Watering system is Enabled" if wateringsystemstatus  else "Watering system is Disabled")  
   print ("Current Time is within the watering hours window" if validhour  else "Current Time is outside the watering hours window")  
+  
+  wateritnow = False
 
   if wateringsystemstatus and validhour:
     #No data of last watering
     #Water immediately
     if rtcdata.get('lastwateringtime',0) == 0:
-      waternow(wateringdosageduration)
-      rtcdata['lastwateringtime'] = time.time()
-      post_to_cloud('last-watering-time',rtcdata['lastwateringtime'])
+      wateritnow = True
     else:
       #Check if delta has expired
-      if rtcdata['lastwateringtime'] + wateringdosageinterval <= time.time():
-        waternow(wateringdosageduration)
-        rtcdata['lastwateringtime'] = time.time()
-        post_to_cloud('last-watering-time',rtcdata['lastwateringtime'])
+      if rtcdata['lastwateringtime'] + wateringdosageinterval <= rtcdata['ntptime']:
+        wateritnow = True
+
+  if wateritnow:
+    dowatering(wateringdosageduration)
+    rtcdata['lastwateringtime'] = rtcdata['ntptime']
+    post_to_cloud('last-watering-time',rtcdata['lastwateringtime'])  
 
   rtcdata['wateringdosageduration'] = wateringdosageduration
   rtcdata['wateringdosageinterval'] = wateringdosageinterval
@@ -175,4 +178,9 @@ if __name__ == "__main__":
   
   post_to_cloud('i-am-alive', rtcdata['i-am-alive'])
   
-  mybuddy.deepsleep(15*60*1000)
+  sleepinterval_seconds = 15 * 60
+  
+  if wateritnow:
+    sleepinterval_seconds -= (time.time() - rtcdata['ntptime'])
+    
+  mybuddy.deepsleep(sleepinterval_seconds *1000)
