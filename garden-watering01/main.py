@@ -12,15 +12,15 @@ MQTT_CLIENT_ID = "578ee6a0-d0ad-40be-8687-162a6d6136e4"
 
 #Safetynet during development
 #Give enough time to delete file before execution
-for x in range (3):
+for x in range (5):
   print (".",end='')
   time.sleep (1)
 print ("")
 
 def dowatering(pulseduration=10):
   print ("Watering started")
-  #GPIO Pin 5 aka D1 is connected to relay signal pin
-  wateringpumprelayPin = machine.Pin(5, machine.Pin.OUT,value=0)
+  #GPIO Pin 4 aka D1 is connected to relay signal pin
+  wateringpumprelayPin = machine.Pin(4, machine.Pin.OUT,value=0)
   try:
     wateringpumprelayPin.high()
     time.sleep(pulseduration)
@@ -77,26 +77,19 @@ if __name__ == "__main__":
   if len(memorystring) == 0:
     print("No Data in RTC")
   else:
-    import json
-    rtcdata = json.loads(memorystring)
-    
+    try:
+      import json
+      print ("Memory Data string %s"%(memorystring))
+      rtcdata = json.loads(memorystring)
+    except ValueError:
+      print ("Error parsing RTC data")
+      rtcdata = None
+
   if rtcdata is None:
     rtcdata = {}
   
   import network
   wlan = network.WLAN(network.STA_IF)
-  
-  # wificonnected = False
-  # for i in range (60):
-    # if wlan.isconnected():
-      # wificonnected = True
-      # break
-    # else:
-      # time.sleep(1)
-
-  # if not wificonnected:
-    # print ("No Wifi. Going to sleep")
-    # mybuddy.deepsleep(2*60*1000)
     
   for i in range (60):
     if wlan.isconnected():
