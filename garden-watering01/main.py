@@ -19,7 +19,7 @@ print ("")
 
 def dowatering(pulseduration=10):
   print ("Watering started")
-  #GPIO Pin 4 aka D1 is connected to relay signal pin
+  #GPIO Pin 4 aka D2 (Node MCU) is connected to relay signal pin
   wateringpumprelayPin = machine.Pin(4, machine.Pin.OUT,value=0)
   try:
     wateringpumprelayPin.high()
