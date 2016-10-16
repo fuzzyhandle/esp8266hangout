@@ -85,8 +85,7 @@ def connecttonetwork(retry = 5):
   for x in range (retry):
     if wlan.isconnected():
       break
-    machine.idle()
-    time.sleep(1)
+    time.sleep(5)
 
   if wlan.isconnected():
     print(wlan.ifconfig())
@@ -123,10 +122,15 @@ if __name__ == "__main__":
   
   
   #Connect to Network
-  if not (connecttonetwork() and mybuddy.have_internet()):
-    #No internet. Sleep and retry later
-    wifioffdeepsleep(1*60)
+  if not connecttonetwork():
+    print ("No connection to wifi")
+    wifioffdeepsleep(15*60)
   else:
+    if not mybuddy.have_internet():
+      #No internet. Sleep and retry later
+      print ("No connection to internet")
+      wifioffdeepsleep(5*60)  
+    
     #Flow comes here only when we have wifi
     try:
       mybuddy.setntptime(10)
@@ -182,9 +186,11 @@ if __name__ == "__main__":
   rtcdata['wateringdosageduration'] = wateringdosageduration
   rtcdata['wateringdosageinterval'] = wateringdosageinterval
   rtcdata['i-am-alive'] = time.time()
+  
+  nextwatering = rtcdata['lastwateringtime'] + rtcdata['wateringdosageinterval'] - rtcdata['ntptime']
 
   if wateringsystemstatus:
-    post_to_cloud('next-watering-in', rtcdata['lastwateringtime'] + rtcdata['wateringdosageinterval'] - rtcdata['ntptime'])
+    post_to_cloud('next-watering-in', nextwatering)
   
   if True:
     import json
@@ -201,5 +207,8 @@ if __name__ == "__main__":
   
   if wateritnow:
     sleepinterval_seconds -= (time.time() - rtcdata['ntptime'])
-
+  
+  if nextwatering < sleepinterval_seconds:
+    sleepinterval_seconds = nextwatering
+  
   wifioffdeepsleep(sleepinterval_seconds)
