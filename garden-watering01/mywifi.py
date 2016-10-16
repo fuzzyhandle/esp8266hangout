@@ -3,6 +3,7 @@ class mywifi:
   def connect(cls):
     import network
     import ujson
+    import time
     
     keystext = open("wifi.json").read()
     wificonfig = ujson.loads(keystext)    
