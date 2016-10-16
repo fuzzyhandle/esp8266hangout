@@ -30,5 +30,5 @@ def deepsleep(sleeptime=15*60*1000):
 
   #Make sure you have GPIO16 connected RST to wake from deepSleep.
   # put the device to sleep
-  print ("Going into Sleep now")
+  print ("Going into Sleep now for %d ms"%(sleeptime))
   machine.deepsleep()
