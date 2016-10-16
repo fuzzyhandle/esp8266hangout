@@ -80,12 +80,14 @@ def connecttonetwork(retry = 5):
   wlan.active(True)
   wificonfig = get_wifi_config()
   wlan.connect(wificonfig['ssid'], wificonfig['password'])
-  time.sleep(10)
+  
   
   for x in range (retry):
     if wlan.isconnected():
       break
     machine.idle()
+    time.sleep(1)
+
   if wlan.isconnected():
     print(wlan.ifconfig())
   return wlan.isconnected()
