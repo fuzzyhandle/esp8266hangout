@@ -60,8 +60,41 @@ def post_to_cloud(feedname,value):
   client = get_adafriut_mqtt_client(connect=True)
   client.publish('{0}/feeds/{1}'.format(adafruitconfig['username'], feedname), str(value),qos=1)
   client.disconnect()
-  
 
+def get_wifi_config():
+  keystext = open("wifi.json").read()
+  wificonfig = ujson.loads(keystext)
+  return wificonfig
+  
+def setwifimode(stationmode=False,apmode=False):
+  import network
+  sta = network.WLAN(network.STA_IF) # create station interface
+  ap = network.WLAN(network.AP_IF)
+  sta.active(stationmode)
+  ap.active(apmode)  
+  return [sta,ap]
+  
+def connecttonetwork(retry = 5):
+  import network
+  wlan =  network.WLAN(network.STA_IF)
+  wlan.active(True)
+  wificonfig = get_wifi_config()
+  wlan.connect(wificonfig['ssid'], wificonfig['password'])
+  time.sleep(10)
+  
+  for x in range (retry):
+    if wlan.isconnected():
+      break
+    machine.idle()
+  if wlan.isconnected():
+    print(wlan.ifconfig())
+  return wlan.isconnected()
+   
+def wifioffdeepsleep(sleepinterval_seconds):
+  setwifimode (False, False)
+  mybuddy.deepsleep(sleepinterval_seconds *1000)
+
+  
 if __name__ == "__main__":
   #Put things here which can be done before needing wifi
   
@@ -69,9 +102,7 @@ if __name__ == "__main__":
   resetcause = machine.reset_cause()
   rtcdata = None
 
-  #if resetcause == machine.DEEPSLEEP_RESET:
-    #Woken up from RTC time out.
-    #Try to read save data from memory
+  #Try to read save data from memory
   _rtc = machine.RTC()
   memorystring = _rtc.memory()
   if len(memorystring) == 0:
@@ -88,27 +119,18 @@ if __name__ == "__main__":
   if rtcdata is None:
     rtcdata = {}
   
-  import network
-  wlan = network.WLAN(network.STA_IF)
-    
-  for i in range (60):
-    if wlan.isconnected():
-      wificonnected = True
-      if mybuddy.have_internet():
-        break
-    else:
-      time.sleep(1)
-
-  if not wificonnected:
-    print ("No Wifi. Going to sleep")
-    mybuddy.deepsleep(2*60*1000)
-
-  #Flow comes here only when we have wifi
-  try:
-    mybuddy.setntptime(10)
-  except:
-    print ("Error setting NTP Time. Going to sleep")
-    mybuddy.deepsleep(2*60*1000)
+  
+  #Connect to Network
+  if not (connecttonetwork() and mybuddy.have_internet()):
+    #No internet. Sleep and retry later
+    wifioffdeepsleep(1*60)
+  else:
+    #Flow comes here only when we have wifi
+    try:
+      mybuddy.setntptime(10)
+    except:
+      print ("Error setting NTP Time. Going to sleep")
+      wifioffdeepsleep(2*60)
     
   rtcdata['ntptime'] = time.time()
   post_to_cloud('i-am-alive', rtcdata['ntptime'])
@@ -128,6 +150,7 @@ if __name__ == "__main__":
   wateringsystemstatus = (read_from_cloud ('watering-system-automation') == 'ON')
   wateringearliestpossiblehour = int(read_from_cloud ('earliest-morning-watering-time'))
   wateringlatestpossiblehour = int(read_from_cloud ('latest-afternoon-watering-time'))
+  wateringupdateinterval = int(read_from_cloud ('watering-system-update-interval'))
   
   validhour = True
   print ("Hour of the day is %d"%(localtime[3]))
@@ -171,9 +194,10 @@ if __name__ == "__main__":
   
   post_to_cloud('i-am-alive', rtcdata['i-am-alive'])
   
-  sleepinterval_seconds = 15 * 60
+  sleepinterval_seconds = wateringupdateinterval * 60
+  
   
   if wateritnow:
     sleepinterval_seconds -= (time.time() - rtcdata['ntptime'])
-    
-  mybuddy.deepsleep(sleepinterval_seconds *1000)
+
+  wifioffdeepsleep(sleepinterval_seconds)
