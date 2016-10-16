@@ -208,7 +208,7 @@ if __name__ == "__main__":
   if wateritnow:
     sleepinterval_seconds -= (time.time() - rtcdata['ntptime'])
   
-  if nextwatering < sleepinterval_seconds:
+  if wateringsystemstatus and (nextwatering >= 0) and (nextwatering < sleepinterval_seconds):
     sleepinterval_seconds = nextwatering
   
   wifioffdeepsleep(sleepinterval_seconds)
