@@ -95,7 +95,19 @@ def wifioffdeepsleep(sleepinterval_seconds):
   setwifimode (False, False)
   mybuddy.deepsleep(sleepinterval_seconds *1000)
 
-  
+def deltatovalidwateringtime(tm_localtime,minhour,maxhour):
+  currtm = time.mktime(tm_localtime) - 19800
+
+  minwateringtodaytm = time.mktime((tm_localtime[0],tm_localtime[1],tm_localtime[2],minhour,0,0,tm_localtime[6],tm_localtime[7])) - 19800
+  maxwateringtodaytm = time.mktime((tm_localtime[0],tm_localtime[1],tm_localtime[2],maxhour,0,0,tm_localtime[6],tm_localtime[7])) - 19800
+  minwateringtommtm =  minwateringtodaytm + 86400
+  if tm_localtime[3] < minhour:
+    return minwateringtodaytm - currtm
+  elif tm_localtime[3] > maxhour:
+    return minwateringtommtm - currtm
+  else:
+    return 0
+
 if __name__ == "__main__":
   #Put things here which can be done before needing wifi
   
@@ -187,8 +199,12 @@ if __name__ == "__main__":
   rtcdata['wateringdosageinterval'] = wateringdosageinterval
   rtcdata['i-am-alive'] = time.time()
   
-  nextwatering = rtcdata['lastwateringtime'] + rtcdata['wateringdosageinterval'] - rtcdata['ntptime']
-
+  nextvalidwateringwindow = deltatovalidwateringtime(localtime,wateringearliestpossiblehour,wateringlatestpossiblehour)
+  if nextvalidwateringwindow == 0:
+    nextwatering = rtcdata['lastwateringtime'] + rtcdata['wateringdosageinterval'] - rtcdata['ntptime']
+  else:
+    nextwatering = nextvalidwateringwindow
+    
   if wateringsystemstatus:
     post_to_cloud('next-watering-in', nextwatering)
   
@@ -203,10 +219,6 @@ if __name__ == "__main__":
   post_to_cloud('i-am-alive', rtcdata['i-am-alive'])
   
   sleepinterval_seconds = wateringupdateinterval * 60
-  
-  
-  if wateritnow:
-    sleepinterval_seconds -= (time.time() - rtcdata['ntptime'])
   
   if wateringsystemstatus and (nextwatering >= 0) and (nextwatering < sleepinterval_seconds):
     sleepinterval_seconds = nextwatering
