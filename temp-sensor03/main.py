@@ -4,20 +4,48 @@ import onewire
 import time
 import ujson
 import urequests
+import mybuddy
 
-def deepsleep():
+#Safetynet during development
+#Give enough time to delete file before execution
+for x in range (5):
+  print (".",end='')
+  time.sleep (1)
+print ("")
 
-  # configure RTC.ALARM0 to be able to wake the device
-  rtc = machine.RTC()
-  rtc.irq(trigger=rtc.ALARM0, wake=machine.DEEPSLEEP)
+def get_wifi_config():
+  keystext = open("wifi.json").read()
+  wificonfig = ujson.loads(keystext)
+  return wificonfig
+  
+def setwifimode(stationmode=False,apmode=False):
+  import network
+  sta = network.WLAN(network.STA_IF) # create station interface
+  ap = network.WLAN(network.AP_IF)
+  sta.active(stationmode)
+  ap.active(apmode)  
+  return [sta,ap]
+  
+def connecttonetwork(retry = 5):
+  import network
+  wlan =  network.WLAN(network.STA_IF)
+  wlan.active(True)
+  wificonfig = get_wifi_config()
+  wlan.connect(wificonfig['ssid'], wificonfig['password'])
+  
+  
+  for x in range (retry):
+    if wlan.isconnected():
+      break
+    time.sleep(5)
 
-  # set RTC.ALARM0 to fire after some time. Time is given in milliseconds here
-  rtc.alarm(rtc.ALARM0, 15*60*1000)
-
-  #Make sure you have GPIO16 connected RST to wake from deepSleep.
-  # put the device to sleep
-  print ("Going into Sleep now")
-  machine.deepsleep()
+  if wlan.isconnected():
+    print(wlan.ifconfig())
+  return wlan.isconnected()
+   
+def wifioffdeepsleep(sleepinterval_seconds):
+  setwifimode (False, False)
+  mybuddy.deepsleep(sleepinterval_seconds *1000)
 
 def posttocloud(temperature):
   
@@ -37,11 +65,54 @@ def posttocloud(temperature):
   print (resp.text)
   
 if __name__ == "__main__":
-  import network
-  wlan = network.WLAN(network.STA_IF)
-  while not wlan.isconnected() :
-    time.sleep_ms(1)
+  #Put things here which can be done before needing wifi
+  
+  #Get the last run time from RTC memory
+  resetcause = machine.reset_cause()
+  rtcdata = None
 
+  #Try to read save data from memory
+  _rtc = machine.RTC()
+  memorystring = _rtc.memory()
+  if len(memorystring) == 0:
+    print("No Data in RTC")
+  else:
+    try:
+      import json
+      print ("Memory Data string %s"%(memorystring))
+      rtcdata = json.loads(memorystring)
+    except ValueError:
+      print ("Error parsing RTC data")
+      rtcdata = None
+
+  if rtcdata is None:
+    rtcdata = {}
+  
+  
+  #Connect to Network
+  if not connecttonetwork():
+    print ("No connection to wifi")
+    wifioffdeepsleep(15*60)
+  else:
+    if not mybuddy.have_internet():
+      #No internet. Sleep and retry later
+      print ("No connection to internet")
+      wifioffdeepsleep(5*60)  
+    
+    #Flow comes here only when we have wifi
+    try:
+      mybuddy.setntptime(10)
+    except:
+      print ("Error setting NTP Time. Going to sleep")
+      wifioffdeepsleep(2*60)
+    
+  rtcdata['ntptime'] = time.time()
+  
+  #Micropython has no timezone support. Timezone is always UTC.
+  #Bad Hack. 
+  #Add the Delta for India Time
+  localtime = time.localtime(rtcdata['ntptime']+ 19800) 
+  
   p = machine.Pin(2) # Data Line is on GPIO2 aka D4
   ow = onewire.OneWire(p)
   ds = DS18X20(ow)
@@ -54,5 +125,19 @@ if __name__ == "__main__":
   temperature = round(float(ds.read_temp(rom)),1)
   #print("Temperature: {:02.1f}".format(temperature))
   posttocloud(temperature)
-  deepsleep()
+
+  if True:  
+    import json
+    _rtc = machine.RTC()
+    datastring = json.dumps(rtcdata)
+    print("Saving Data in RTC %s"%(datastring))
+    _rtc.memory(datastring)
+    time.sleep (2)
+  
+  
+  sleepinterval_seconds = 5 * 60
+  nextcheck = rtcdata['ntptime'] + (sleepinterval_seconds - rtcdata['ntptime'] % sleepinterval_seconds)
+  sleepinterval_seconds = nextcheck - rtcdata['ntptime']
+  
+  wifioffdeepsleep(sleepinterval_seconds)
   
