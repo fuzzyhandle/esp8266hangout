@@ -4,7 +4,7 @@ def have_internet(retry = 5):
   import urequests
   for x in range(retry):
     try:
-      resp = urequests.request("HEAD", "http://jsonip.com/")
+      resp = urequests.request("HEAD", "http://www.apache.org/")
       return True
     except:
       None
