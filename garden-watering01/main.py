@@ -1,6 +1,7 @@
 import mybuddy
 
 import machine
+import sys
 import time
 import ujson
 import urequests
@@ -35,7 +36,7 @@ def get_adafruit_config():
   adafruitconfig = ujson.loads(keystext)
   return adafruitconfig
   
-def get_adafriut_mqtt_client(connect=False):
+def get_adafruit_mqtt_client(connect=False):
   from umqtt.simple import MQTTClient
   adafruitconfig = get_adafruit_config()
   c = MQTTClient(MQTT_CLIENT_ID, adafruitconfig['servername'],adafruitconfig['port'],adafruitconfig['username'],adafruitconfig['aiokey'] )
@@ -57,7 +58,7 @@ def read_from_cloud(feedname):
   
 def post_to_cloud(feedname,value):
   adafruitconfig = get_adafruit_config()
-  client = get_adafriut_mqtt_client(connect=True)
+  client = get_adafruit_mqtt_client(connect=True)
   client.publish('{0}/feeds/{1}'.format(adafruitconfig['username'], feedname), str(value),qos=1)
   client.disconnect()
 
@@ -109,118 +110,124 @@ def deltatovalidwateringtime(tm_localtime,minhour,maxhour):
     return 0
 
 if __name__ == "__main__":
-  #Put things here which can be done before needing wifi
-  
-  #Get the last run time from RTC memory
-  resetcause = machine.reset_cause()
-  rtcdata = None
-
-  #Try to read save data from memory
-  _rtc = machine.RTC()
-  memorystring = _rtc.memory()
-  if len(memorystring) == 0:
-    print("No Data in RTC")
-  else:
-    try:
-      import json
-      print ("Memory Data string %s"%(memorystring))
-      rtcdata = json.loads(memorystring)
-    except ValueError:
-      print ("Error parsing RTC data")
-      rtcdata = None
-
-  if rtcdata is None:
-    rtcdata = {}
-  
-  
-  #Connect to Network
-  if not connecttonetwork():
-    print ("No connection to wifi")
-    wifioffdeepsleep(15*60)
-  else:
-    if not mybuddy.have_internet():
-      #No internet. Sleep and retry later
-      print ("No connection to internet")
-      wifioffdeepsleep(5*60)  
+  try:
+    #Put things here which can be done before needing wifi
     
-    #Flow comes here only when we have wifi
-    try:
-      mybuddy.setntptime(10)
-    except:
-      print ("Error setting NTP Time. Going to sleep")
-      wifioffdeepsleep(2*60)
-    
-  rtcdata['ntptime'] = time.time()
-  post_to_cloud('i-am-alive', rtcdata['ntptime'])
-  
-  #Micropython has no timezone support. Timezone is always UTC.
-  #Bad Hack. 
-  #Add the Delta for India Time
-  localtime = time.localtime(rtcdata['ntptime']+ 19800) 
-  
-  #Read data from Cloud
-  lastwateringtime = int(read_from_cloud ('last-watering-time'))
-  if lastwateringtime is not None:
-    rtcdata['lastwateringtime'] = lastwateringtime
-  
-  wateringdosageduration = int(read_from_cloud ('water-dosage-length'))
-  wateringdosageinterval = 60* 60* int(read_from_cloud ('water-dosage-frequency'))
-  wateringsystemstatus = (read_from_cloud ('watering-system-automation') == 'ON')
-  wateringearliestpossiblehour = int(read_from_cloud ('earliest-morning-watering-time'))
-  wateringlatestpossiblehour = int(read_from_cloud ('latest-afternoon-watering-time'))
-  wateringupdateinterval = int(read_from_cloud ('watering-system-update-interval'))
-  
-  validhour = True
-  print ("Hour of the day is %d"%(localtime[3]))
-  if ((localtime[3] < wateringearliestpossiblehour) or (localtime[3] >= wateringlatestpossiblehour)):
-    validhour = False
+    #Get the last run time from RTC memory
+    resetcause = machine.reset_cause()
+    rtcdata = None
 
-  print ("Watering system is Enabled" if wateringsystemstatus  else "Watering system is Disabled")  
-  print ("Current Time is within the watering hours window" if validhour  else "Current Time is outside the watering hours window")  
-  
-  wateritnow = False
-
-  if wateringsystemstatus and validhour:
-    #No data of last watering
-    #Water immediately
-    if rtcdata.get('lastwateringtime',0) == 0:
-      wateritnow = True
-    else:
-      #Check if delta has expired
-      if rtcdata['lastwateringtime'] + wateringdosageinterval <= rtcdata['ntptime']:
-        wateritnow = True
-
-  if wateritnow:
-    dowatering(wateringdosageduration)
-    rtcdata['lastwateringtime'] = rtcdata['ntptime']
-    post_to_cloud('last-watering-time',rtcdata['lastwateringtime'])  
-
-  rtcdata['wateringdosageduration'] = wateringdosageduration
-  rtcdata['wateringdosageinterval'] = wateringdosageinterval
-  rtcdata['i-am-alive'] = time.time()
-  
-  nextvalidwateringwindow = deltatovalidwateringtime(localtime,wateringearliestpossiblehour,wateringlatestpossiblehour)
-  if nextvalidwateringwindow == 0:
-    nextwatering = rtcdata['lastwateringtime'] + rtcdata['wateringdosageinterval'] - rtcdata['ntptime']
-  else:
-    nextwatering = nextvalidwateringwindow
-    
-  if wateringsystemstatus:
-    post_to_cloud('next-watering-in', nextwatering)
-  
-  if True:
-    import json
+    #Try to read save data from memory
     _rtc = machine.RTC()
-    datastring = json.dumps(rtcdata)
-    print("Saving Data in RTC %s"%(datastring))
-    _rtc.memory(datastring)
-    time.sleep (2)
-  
-  post_to_cloud('i-am-alive', rtcdata['i-am-alive'])
-  
-  sleepinterval_seconds = wateringupdateinterval * 60
-  
-  if wateringsystemstatus and (nextwatering >= 0) and (nextwatering < sleepinterval_seconds):
-    sleepinterval_seconds = nextwatering
-  
-  wifioffdeepsleep(sleepinterval_seconds)
+    memorystring = _rtc.memory()
+    if len(memorystring) == 0:
+      print("No Data in RTC")
+    else:
+      try:
+        import json
+        print ("Memory Data string %s"%(memorystring))
+        rtcdata = json.loads(memorystring)
+      except ValueError:
+        print ("Error parsing RTC data")
+        rtcdata = None
+
+    if rtcdata is None:
+      rtcdata = {}
+    
+    
+    #Connect to Network
+    if not connecttonetwork():
+      print ("No connection to wifi")
+      wifioffdeepsleep(15*60)
+    else:
+      if not mybuddy.have_internet():
+        #No internet. Sleep and retry later
+        print ("No connection to internet")
+        wifioffdeepsleep(5*60)  
+      
+      #Flow comes here only when we have wifi
+      try:
+        mybuddy.setntptime(10)
+      except:
+        print ("Error setting NTP Time. Going to sleep")
+        wifioffdeepsleep(2*60)
+      
+    rtcdata['ntptime'] = time.time()
+    post_to_cloud('i-am-alive', rtcdata['ntptime'])
+    
+    #Micropython has no timezone support. Timezone is always UTC.
+    #Bad Hack. 
+    #Add the Delta for India Time
+    localtime = time.localtime(rtcdata['ntptime']+ 19800) 
+    
+    #Read data from Cloud
+    lastwateringtime = int(read_from_cloud ('last-watering-time'))
+    if lastwateringtime is not None:
+      rtcdata['lastwateringtime'] = lastwateringtime
+    
+    wateringdosageduration = int(read_from_cloud ('water-dosage-length'))
+    wateringdosageinterval = 60* 60* int(read_from_cloud ('water-dosage-frequency'))
+    wateringsystemstatus = (read_from_cloud ('watering-system-automation') == 'ON')
+    wateringearliestpossiblehour = int(read_from_cloud ('earliest-morning-watering-time'))
+    wateringlatestpossiblehour = int(read_from_cloud ('latest-afternoon-watering-time'))
+    wateringupdateinterval = int(read_from_cloud ('watering-system-update-interval'))
+    
+    validhour = True
+    print ("Hour of the day is %d"%(localtime[3]))
+    if ((localtime[3] < wateringearliestpossiblehour) or (localtime[3] >= wateringlatestpossiblehour)):
+      validhour = False
+
+    print ("Watering system is Enabled" if wateringsystemstatus  else "Watering system is Disabled")  
+    print ("Current Time is within the watering hours window" if validhour  else "Current Time is outside the watering hours window")  
+    
+    wateritnow = False
+
+    if wateringsystemstatus and validhour:
+      #No data of last watering
+      #Water immediately
+      if rtcdata.get('lastwateringtime',0) == 0:
+        wateritnow = True
+      else:
+        #Check if delta has expired
+        if rtcdata['lastwateringtime'] + wateringdosageinterval <= rtcdata['ntptime']:
+          wateritnow = True
+
+    if wateritnow:
+      dowatering(wateringdosageduration)
+      rtcdata['lastwateringtime'] = rtcdata['ntptime']
+      post_to_cloud('last-watering-time',rtcdata['lastwateringtime'])  
+
+    rtcdata['wateringdosageduration'] = wateringdosageduration
+    rtcdata['wateringdosageinterval'] = wateringdosageinterval
+    rtcdata['i-am-alive'] = time.time()
+    
+    nextvalidwateringwindow = deltatovalidwateringtime(localtime,wateringearliestpossiblehour,wateringlatestpossiblehour)
+    if nextvalidwateringwindow == 0:
+      nextwatering = rtcdata['lastwateringtime'] + rtcdata['wateringdosageinterval'] - rtcdata['ntptime']
+    else:
+      nextwatering = nextvalidwateringwindow
+      
+    if wateringsystemstatus:
+      post_to_cloud('next-watering-in', nextwatering)
+    
+    if True:
+      import json
+      _rtc = machine.RTC()
+      datastring = json.dumps(rtcdata)
+      print("Saving Data in RTC %s"%(datastring))
+      _rtc.memory(datastring)
+      time.sleep (2)
+    
+    post_to_cloud('i-am-alive', rtcdata['i-am-alive'])
+    
+    sleepinterval_seconds = wateringupdateinterval * 60
+    
+    if wateringsystemstatus and (nextwatering >= 0) and (nextwatering < sleepinterval_seconds):
+      sleepinterval_seconds = nextwatering
+    
+    wifioffdeepsleep(sleepinterval_seconds)
+  except Exception as e:
+    print ("An Exception occured")
+    sys.print_exception(e, file=sys.stdout)
+    #Go to deep sleep
+    wifioffdeepsleep(5*60)
