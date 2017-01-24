@@ -174,7 +174,7 @@ if __name__ == "__main__":
     
     validhour = True
     print ("Hour of the day is %d"%(localtime[3]))
-    if ((localtime[3] < wateringearliestpossiblehour) or (localtime[3] >= wateringlatestpossiblehour)):
+    if ((localtime[3] < wateringearliestpossiblehour) or (localtime[3] > wateringlatestpossiblehour)):
       validhour = False
 
     print ("Watering system is Enabled" if wateringsystemstatus  else "Watering system is Disabled")  
