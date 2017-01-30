@@ -26,7 +26,7 @@ int v6_irrigation_dosage_interval = 2 * 3600;
 int v7_override =0;
 
 bool pump_running = true;
-const uint PUMP_PIN = 2;
+const uint PUMP_PIN = 4;
 
 WiFiUDP Udp;
 NTPClient ntpclient(Udp);
