@@ -132,6 +132,7 @@ BLYNK_WRITE(V6) // There is a Widget that WRITEs data to V4
 BLYNK_WRITE(V7) // There is a Widget that WRITEs data to V4
 {
   v7_override = param.asInt();
+  BLYNK_LOG ("Change Override Switch",v7_override);
 }
 
 void sendheartbeat()
@@ -145,8 +146,11 @@ void sendheartbeat()
 void setup(/* arguments */) {
   /* code */
   Serial.begin(115200);
-  pinMode(PUMP_PIN,OUTPUT);
   BLYNK_LOG("In setup");
+
+  pinMode(PUMP_PIN,OUTPUT);
+  digitalWrite(PUMP_PIN, LOW);
+
   //Serial.println("Hello from setup");
   //Serial.printf("%s %s %s\n", BLYNK_AUTH,WIFI_SSID,WIFI_PASSWORD);
   Blynk.begin(BLYNK_AUTH,WIFI_SSID,WIFI_PASSWORD);
@@ -195,7 +199,7 @@ void loop(/* arguments */) {
   long seconds_since_start_of_day = (ntpclient.getHours() * 3600) +  (ntpclient.getMinutes() * 60 ) +  ntpclient.getSeconds();
 
   BLYNK_LOG ("Last watering time is %d",v4_irrigation_last_dose);
-  BLYNK_LOG ("Time between consicutive cycles %d",v6_irrigation_dosage_interval);
+  BLYNK_LOG ("Time between consecutive cycles %d",v6_irrigation_dosage_interval);
 
   BLYNK_LOG ("Seconds since start of day %d",seconds_since_start_of_day);
   if (v0_masterswitch == HIGH)
@@ -205,7 +209,7 @@ void loop(/* arguments */) {
     {
 
       BLYNK_LOG ("Watering needed based on last dose and interval");
-      if (v7_override or (  v2_irrigation_min_starttime  >= seconds_since_start_of_day <= v2_irrigation_max_endtime))
+      if (v7_override or ( ( seconds_since_start_of_day >= v2_irrigation_min_starttime ) and (seconds_since_start_of_day <= v2_irrigation_max_endtime)))
       {
           //BLYNK_LOG ("Current time is within min and max time window");
           BLYNK_LOG ("Watering conditions met. Waterning now.");
@@ -215,6 +219,10 @@ void loop(/* arguments */) {
 
           //Set the last watering time to current time to avoid this getting triggered again till the next cycle
           Blynk.virtualWrite(V4, seconds_since_start_of_day);
+
+          v4_irrigation_last_dose = seconds_since_start_of_day;
+          Blynk.virtualWrite(V4, String(v4_irrigation_last_dose).c_str());
+
           timer_stop_pump.setTimeout( v5_irrigation_dosage_volume * 1000, timerfunc_timeout_stop_pump);
           timer_stop_pump.run();
           //TODO set a timer to stop the pump
