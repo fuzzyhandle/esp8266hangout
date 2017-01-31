@@ -9,40 +9,40 @@
 #include <NTPClient.h>
 #include <SimpleTimer.h>
 
+//*******************************
+//Define variable for Virtual Pins
+//********************************
 long v0_masterswitch = 0;
 long v1_sleepinterval = 30;
-
 //Default start at 6 am
 int v2_irrigation_min_starttime = 6 * 3600;
 //Default stop at 7 pm
 int v2_irrigation_max_endtime = 19 * 3600;
-
-
-//Default to 0
 int v4_irrigation_last_dose =  0;
 int v5_irrigation_dosage_volume = 15;
 int v6_irrigation_dosage_interval = 2 * 3600;
-
 int v7_override =0;
 
+//*******************************
+//Define other variables
+//********************************
 bool pump_running = false;
-const uint PUMP_PIN = 4;
-
 WiFiUDP Udp;
 NTPClient ntpclient(Udp);
-
-
+bool isFirstConnect = true;
 SimpleTimer timer_sleep_esp;
 SimpleTimer timer_do_work;
-
 SimpleTimer timer_stop_pump;
 
+//*******************************
+//Define Constants
+//********************************
 
-int timer_stop_pump_id;
+//Difference in seconds between Local time zone and UTC.
+//Use positive for East of 0 deg longitude and Negative for West of 0 deg longitude
+const int TIMEZONE_OFFSET = ((5*60) +30) * 60;
+const uint PUMP_PIN = 4;
 
-bool isFirstConnect = true;
-
-//
 void dowork();
 
 void sleep_timerfunc_interval()
@@ -100,18 +100,6 @@ BLYNK_WRITE(V2) // There is a Widget that WRITEs data to V2
   v2_irrigation_min_starttime = param[0].asInt();
   v2_irrigation_max_endtime = param[1].asInt();
 
-/*
-  if (t.hasStartTime()){
-    BLYNK_LOG1("Start Time Specified");
-    v2_irrigation_min_starttime = (t.getStartHour() * 3600);
-  }
-
- if (t.hasStopTime())
- {
-    BLYNK_LOG1("Start Time Specified");
-    v2_irrigation_max_endtime = (t.getStopHour() * 3600);
-  }
-*/
   BLYNK_LOG ("Irrigation Start Time %d",v2_irrigation_min_starttime);
   BLYNK_LOG ("Irrigation Stop Time %d",v2_irrigation_max_endtime);
 }
@@ -145,22 +133,18 @@ BLYNK_WRITE(V7) // There is a Widget that WRITEs data to V4
 
 void sendheartbeat()
 {
-  //String stringHeartbeat = String("") + ntpclient.getHours() + ":" + ntpclient.getMinutes();
   String stringHeartbeat =  ntpclient.getFormattedTime ();
-  //BLYNK_LOG("Heart Beat is %s", stringHeartbeat.c_str());
   Blynk.virtualWrite(V3, stringHeartbeat.c_str());
 }
 
 void setup(/* arguments */) {
   /* code */
   Serial.begin(115200);
+
   BLYNK_LOG("In setup");
 
   pinMode(PUMP_PIN,OUTPUT);
   digitalWrite(PUMP_PIN, LOW);
-
-  //Serial.println("Hello from setup");
-  //Serial.printf("%s %s %s\n", BLYNK_AUTH,WIFI_SSID,WIFI_PASSWORD);
   Blynk.begin(BLYNK_AUTH,WIFI_SSID,WIFI_PASSWORD);
 
   BLYNK_LOG("Waiting for BLYNK Server");
@@ -170,9 +154,7 @@ void setup(/* arguments */) {
     BLYNK_LOG(".");
   }
 
-  //Blynk.syncVirtual(V4,V6);
-
-  ntpclient.setTimeOffset(19800);
+  ntpclient.setTimeOffset(TIMEZONE_OFFSET);
   ntpclient.begin();
   ntpclient.update();
 
@@ -203,11 +185,7 @@ void dowork()
   long now = ntpclient.getEpochTime();
   sendheartbeat();
 
-  //Sync the critical pieces
-  //Blynk.syncVirtual(V4,v4_irrigation_last_dose);
-
   //Check if we need to start the pump
-
   //get seconds from start of the day
   long seconds_since_start_of_day = (ntpclient.getHours() * 3600) +  (ntpclient.getMinutes() * 60 ) +  ntpclient.getSeconds();
 
@@ -238,8 +216,6 @@ void dowork()
           Blynk.virtualWrite(V4, v4_irrigation_last_dose);
 
           timer_stop_pump.setTimeout( v5_irrigation_dosage_volume * 1000, timerfunc_timeout_stop_pump);
-          //timer_stop_pump.run();
-          //TODO set a timer to stop the pump
       }
     }
   }
