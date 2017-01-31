@@ -43,6 +43,7 @@ SimpleTimer timer_stop_pump;
 const int TIMEZONE_OFFSET = ((5*60) +30) * 60;
 const uint PUMP_PIN = 4;
 
+//Declare Function signature to avoid having the body before the call
 void dowork();
 
 void sleep_timerfunc_interval()
