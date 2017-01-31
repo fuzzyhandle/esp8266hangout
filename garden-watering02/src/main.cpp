@@ -18,6 +18,9 @@ long v1_sleepinterval = 30;
 int v2_irrigation_min_starttime = 6 * 3600;
 //Default stop at 7 pm
 int v2_irrigation_max_endtime = 19 * 3600;
+
+//V3 has no matching variable on purpose. Its a display text generated via value of V4
+
 int v4_irrigation_last_dose =  0;
 int v5_irrigation_dosage_volume = 15;
 int v6_irrigation_dosage_interval = 2 * 3600;
@@ -105,10 +108,13 @@ BLYNK_WRITE(V2) // There is a Widget that WRITEs data to V2
   BLYNK_LOG ("Irrigation Stop Time %d",v2_irrigation_max_endtime);
 }
 
+BLYNK_WRITE(V3) // There is a Widget that WRITEs data to V3
+{
+  BLYNK_LOG ("V3 is just a display text. It has no variable in h/w");
+}
+
 BLYNK_WRITE(V4) // There is a Widget that WRITEs data to V4
 {
-  //v4_irrigation_last_dose = param[0].asInt();
-  //v4_irrigation_last_dose = param.asInt();
   v4_irrigation_last_dose = param.asInt();
 
   BLYNK_LOG ("Change Last watering time is %d",v4_irrigation_last_dose);
@@ -132,11 +138,6 @@ BLYNK_WRITE(V7) // There is a Widget that WRITEs data to V4
   BLYNK_LOG ("Change Override Switch %d",v7_override);
 }
 
-void sendheartbeat()
-{
-  String stringHeartbeat =  ntpclient.getFormattedTime ();
-  Blynk.virtualWrite(V3, stringHeartbeat.c_str());
-}
 
 void setup(/* arguments */) {
   /* code */
@@ -184,7 +185,6 @@ void dowork()
 {
   BLYNK_LOG ("In dowork");
   long now = ntpclient.getEpochTime();
-  sendheartbeat();
 
   //Check if we need to start the pump
   //get seconds from start of the day
@@ -216,6 +216,11 @@ void dowork()
           //Blynk.virtualWrite(V4, String(v4_irrigation_last_dose).c_str());
           Blynk.virtualWrite(V4, v4_irrigation_last_dose);
 
+          //Create a buffer to hold string HH:MM:SS
+          char v3_display_buffer[10];
+          sprintf(v3_display_buffer, " %2d:%2d:%2d",ntpclient.getHours(), ntpclient.getMinutes() ,ntpclient.getSeconds());
+          Blynk.virtualWrite(V3, v3_display_buffer);
+          BLYNK_LOG ("Last watering time in text %s",v3_display_buffer);
           timer_stop_pump.setTimeout( v5_irrigation_dosage_volume * 1000, timerfunc_timeout_stop_pump);
       }
     }
