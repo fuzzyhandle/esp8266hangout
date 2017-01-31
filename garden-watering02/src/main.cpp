@@ -25,22 +25,32 @@ int v6_irrigation_dosage_interval = 2 * 3600;
 
 int v7_override =0;
 
-bool pump_running = true;
+bool pump_running = false;
 const uint PUMP_PIN = 4;
 
 WiFiUDP Udp;
 NTPClient ntpclient(Udp);
 
-SimpleTimer timer;
+
+SimpleTimer timer_sleep_esp;
+SimpleTimer timer_do_work;
 
 SimpleTimer timer_stop_pump;
+
+
 int timer_stop_pump_id;
 
 bool isFirstConnect = true;
 
+//
+void dowork();
+
 void sleep_timerfunc_interval()
 {
-    //Don't deep sleep if pump is running.
+
+  BLYNK_LOG("Inside sleep_timerfunc_interval");
+
+  //Don't deep sleep if pump is running.
   if (pump_running)
   {
     BLYNK_LOG("Pump is running");
@@ -62,16 +72,12 @@ void timerfunc_timeout_stop_pump()
 
 
 BLYNK_CONNECTED() {
-  //Blynk.syncVirtual(V0);
-  //Blynk.syncVirtual(V1);
+  BLYNK_LOG("In BLYNK_CONNECTED");
   if (isFirstConnect){
     Blynk.syncAll();
     isFirstConnect = false;
-    BLYNK_LOG("Synced");
+    BLYNK_LOG("Synced via BLYNK_CONNECTED");
   }
-
-
-  //Blynk.syncVirtual(V0, V1, V2);
 }
 
 
@@ -113,26 +119,28 @@ BLYNK_WRITE(V2) // There is a Widget that WRITEs data to V2
 BLYNK_WRITE(V4) // There is a Widget that WRITEs data to V4
 {
   //v4_irrigation_last_dose = param[0].asInt();
+  //v4_irrigation_last_dose = param.asInt();
   v4_irrigation_last_dose = param.asInt();
-  BLYNK_LOG ("Last watering time is %d",v4_irrigation_last_dose);
+
+  BLYNK_LOG ("Change Last watering time is %d",v4_irrigation_last_dose);
 }
 
 BLYNK_WRITE(V5) // There is a Widget that WRITEs data to V4
 {
   v5_irrigation_dosage_volume = param.asInt();
-  BLYNK_LOG ("Time for watering is %d seconds",v5_irrigation_dosage_volume);
+  BLYNK_LOG ("Change Time for watering is %d seconds",v5_irrigation_dosage_volume);
 }
 
-BLYNK_WRITE(V6) // There is a Widget that WRITEs data to V4
+BLYNK_WRITE(V6) // There is a Widget that WRITEs data to V6
 {
-  v6_irrigation_dosage_interval = param[0].asInt();
-  BLYNK_LOG ("Delta between consicutive watering cycles is %d hours",v6_irrigation_dosage_interval);
+  v6_irrigation_dosage_interval = param.asInt();
+  BLYNK_LOG ("Change Delta between consecutive watering cycles is %d hours",v6_irrigation_dosage_interval);
 }
 
 BLYNK_WRITE(V7) // There is a Widget that WRITEs data to V4
 {
   v7_override = param.asInt();
-  BLYNK_LOG ("Change Override Switch",v7_override);
+  BLYNK_LOG ("Change Override Switch %d",v7_override);
 }
 
 void sendheartbeat()
@@ -156,16 +164,21 @@ void setup(/* arguments */) {
   Blynk.begin(BLYNK_AUTH,WIFI_SSID,WIFI_PASSWORD);
 
   BLYNK_LOG("Waiting for BLYNK Server");
+
   while (! Blynk.connected())
   {
     BLYNK_LOG(".");
-    delay(1000);
   }
+
+  //Blynk.syncVirtual(V4,V6);
 
   ntpclient.setTimeOffset(19800);
   ntpclient.begin();
   ntpclient.update();
-  timer.setInterval(30000, sleep_timerfunc_interval);
+
+  BLYNK_LOG("Starting timer");
+  timer_sleep_esp.setInterval(30000L, sleep_timerfunc_interval);
+  timer_do_work.setTimeout(10000L, dowork);
 }
 
 void loop(/* arguments */) {
@@ -174,24 +187,24 @@ void loop(/* arguments */) {
   //TODO
   /*  Put code here to check for wifi and internet connectivity.
   Deep sleep for a long time if check fails to avoid battery wastage */
-
-  long now = ntpclient.getEpochTime();
-
-
+  timer_sleep_esp.run();
   Blynk.run();
+  timer_do_work.run();
 
-  //Serial.printf("%s\n", "In loop");
-  //Serial.printf("%s %d\n", "Current Time is", NTPClient.getEpochTime());
+  if (pump_running)
+  {
+    timer_stop_pump.run();
+  }
+}
 
-  // BLYNK_LOG ("Sleep Interval is %d",v1_sleepinterval);
-  // BLYNK_LOG ("Master Switch is %d",v0_masterswitch);
-  //
-  // BLYNK_LOG ("Irrigation Start Time %d",v2_irrigation_min_starttime);
-  // BLYNK_LOG ("Irrigation Stop Time %d",v2_irrigation_max_endtime);
-  //
-
+void dowork()
+{
+  BLYNK_LOG ("In dowork");
+  long now = ntpclient.getEpochTime();
   sendheartbeat();
-  timer.run();
+
+  //Sync the critical pieces
+  //Blynk.syncVirtual(V4,v4_irrigation_last_dose);
 
   //Check if we need to start the pump
 
@@ -221,36 +234,19 @@ void loop(/* arguments */) {
           Blynk.virtualWrite(V4, seconds_since_start_of_day);
 
           v4_irrigation_last_dose = seconds_since_start_of_day;
-          Blynk.virtualWrite(V4, String(v4_irrigation_last_dose).c_str());
+          //Blynk.virtualWrite(V4, String(v4_irrigation_last_dose).c_str());
+          Blynk.virtualWrite(V4, v4_irrigation_last_dose);
 
           timer_stop_pump.setTimeout( v5_irrigation_dosage_volume * 1000, timerfunc_timeout_stop_pump);
-          timer_stop_pump.run();
+          //timer_stop_pump.run();
           //TODO set a timer to stop the pump
       }
     }
   }
-  //delay(30000);
-  //Blynk.syncAll();
-  //BLYNK_LOG("Ending to Sleep");
-}
-/*
-const int statusLED = 2;
-#include <ESP8266WiFi.h>
-void setup() {
-  pinMode(statusLED, OUTPUT);
-  digitalWrite(statusLED, HIGH);
 
-  Serial.begin(115200);
-  Serial.println("The ESP-12e has started.");
-  delay(500);
+  //Reset Override
+  if (v7_override)
+  {
+    Blynk.virtualWrite(V7, 0);
+  }
 }
-
-void loop() {
-  Serial.println("Loop Start.");
-  delay(1000);
-  digitalWrite(statusLED, 0);
-  delay(1000);
-  digitalWrite(statusLED, 1);
-  Serial.println("Loop End");
-}
-*/
