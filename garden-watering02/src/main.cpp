@@ -21,7 +21,7 @@ int v2_irrigation_max_endtime = 19 * 3600;
 
 //V3 has no matching variable on purpose. Its a display text generated via value of V4
 
-int v4_irrigation_last_dose =  0;
+long v4_irrigation_last_dose =  0L;
 int v5_irrigation_dosage_volume = 15;
 int v6_irrigation_dosage_interval = 2 * 3600;
 int v7_override =0;
@@ -115,9 +115,9 @@ BLYNK_WRITE(V3) // There is a Widget that WRITEs data to V3
 
 BLYNK_WRITE(V4) // There is a Widget that WRITEs data to V4
 {
-  v4_irrigation_last_dose = param.asInt();
+  v4_irrigation_last_dose = param.asLong();
 
-  BLYNK_LOG ("Change Last watering time is %d",v4_irrigation_last_dose);
+  BLYNK_LOG ("Change Last watering time is %ld",v4_irrigation_last_dose);
 }
 
 BLYNK_WRITE(V5) // There is a Widget that WRITEs data to V4
@@ -187,17 +187,20 @@ void dowork()
   long now = ntpclient.getEpochTime();
 
   //Check if we need to start the pump
+  //get epoch
+  long epoch =  ntpclient.getEpochTime();
   //get seconds from start of the day
-  long seconds_since_start_of_day = (ntpclient.getHours() * 3600) +  (ntpclient.getMinutes() * 60 ) +  ntpclient.getSeconds();
+  int seconds_since_start_of_day = epoch % 86400;
 
-  BLYNK_LOG ("Last watering time is %d",v4_irrigation_last_dose);
+  BLYNK_LOG ("Epoch is %ld",epoch);
+  BLYNK_LOG ("Last watering time is %ld",v4_irrigation_last_dose);
   BLYNK_LOG ("Time between consecutive cycles %d",v6_irrigation_dosage_interval);
 
   BLYNK_LOG ("Seconds since start of day %d",seconds_since_start_of_day);
   if (v0_masterswitch == HIGH)
   {
     BLYNK_LOG ("Override is %d", v7_override);
-    if (  v7_override or (  seconds_since_start_of_day >= (v4_irrigation_last_dose + v6_irrigation_dosage_interval)))
+    if (  v7_override or (  epoch >= (v4_irrigation_last_dose + v6_irrigation_dosage_interval)))
     {
 
       BLYNK_LOG ("Watering needed based on last dose and interval");
@@ -210,17 +213,17 @@ void dowork()
           digitalWrite(PUMP_PIN, HIGH);
 
           //Set the last watering time to current time to avoid this getting triggered again till the next cycle
-          Blynk.virtualWrite(V4, seconds_since_start_of_day);
-
-          v4_irrigation_last_dose = seconds_since_start_of_day;
-          //Blynk.virtualWrite(V4, String(v4_irrigation_last_dose).c_str());
+          v4_irrigation_last_dose = epoch;
           Blynk.virtualWrite(V4, v4_irrigation_last_dose);
 
           //Create a buffer to hold string HH:MM:SS
-          char v3_display_buffer[10];
-          sprintf(v3_display_buffer, " %2d:%2d:%2d",ntpclient.getHours(), ntpclient.getMinutes() ,ntpclient.getSeconds());
+          //char v3_display_buffer[10];
+          //sprintf(v3_display_buffer, "%02d:%02d:%02d",ntpclient.getHours(), ntpclient.getMinutes() ,ntpclient.getSeconds());
+          String v3_display_buffer;
+          v3_display_buffer = ntpclient.getFormattedTime();
           Blynk.virtualWrite(V3, v3_display_buffer);
-          BLYNK_LOG ("Last watering time in text %s",v3_display_buffer);
+
+          BLYNK_LOG ("Last watering time in text %s",v3_display_buffer.c_str());
           timer_stop_pump.setTimeout( v5_irrigation_dosage_volume * 1000, timerfunc_timeout_stop_pump);
       }
     }
