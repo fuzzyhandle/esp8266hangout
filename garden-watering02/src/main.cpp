@@ -10,6 +10,15 @@
 #include <SimpleTimer.h>
 
 //*******************************
+//Define Constants
+//********************************
+
+//Difference in seconds between Local time zone and UTC.
+//Use positive for East of 0 deg longitude and Negative for West of 0 deg longitude
+const int TIMEZONE_OFFSET = ((5*60) +30) * 60;
+const uint PUMP_PIN = 4;
+
+//*******************************
 //Define variable for Virtual Pins
 //********************************
 long v0_masterswitch = 0;
@@ -31,20 +40,12 @@ int v7_override =0;
 //********************************
 bool pump_running = false;
 WiFiUDP Udp;
-NTPClient ntpclient(Udp);
+NTPClient ntpclient(Udp,TIMEZONE_OFFSET);
 bool isFirstConnect = true;
 SimpleTimer timer_sleep_esp;
 SimpleTimer timer_do_work;
 SimpleTimer timer_stop_pump;
 
-//*******************************
-//Define Constants
-//********************************
-
-//Difference in seconds between Local time zone and UTC.
-//Use positive for East of 0 deg longitude and Negative for West of 0 deg longitude
-const int TIMEZONE_OFFSET = ((5*60) +30) * 60;
-const uint PUMP_PIN = 4;
 
 //Declare Function signature to avoid having the body before the call
 void dowork();
@@ -156,7 +157,6 @@ void setup(/* arguments */) {
     BLYNK_LOG(".");
   }
 
-  ntpclient.setTimeOffset(TIMEZONE_OFFSET);
   ntpclient.begin();
   ntpclient.update();
 
@@ -184,7 +184,6 @@ void loop(/* arguments */) {
 void dowork()
 {
   BLYNK_LOG ("In dowork");
-  long now = ntpclient.getEpochTime();
 
   //Check if we need to start the pump
   //get epoch
