@@ -130,7 +130,7 @@ BLYNK_WRITE(V5) // There is a Widget that WRITEs data to V4
 BLYNK_WRITE(V6) // There is a Widget that WRITEs data to V6
 {
   v6_irrigation_dosage_interval = param.asInt();
-  BLYNK_LOG ("Change Delta between consecutive watering cycles is %d hours",v6_irrigation_dosage_interval);
+  BLYNK_LOG ("Change Delta between consecutive watering cycles is %d seconds",v6_irrigation_dosage_interval);
 }
 
 BLYNK_WRITE(V7) // There is a Widget that WRITEs data to V4
