@@ -26,12 +26,21 @@
 #include <AWSWebSocketClient.h>
 #include <CircularByteBuffer.h>
 
+#include <DHT.h>
+#include <DHT_U.h>
+#define AM2302_WIRE_BUS 4
+#define DHTTYPE DHT22   // DHT 22  (AM2302)
+
+
+
 #include "wifi_config.h"
 #include "aws-iot-config.h"
 
 //AWS IOT config, change these:
 char wifi_ssid[]       = WIFI_SSID;
 char wifi_password[]   = WIFI_PASSWORD;
+
+
 
 //MQTT config
 const int maxMQTTpackageSize = 512;
@@ -43,6 +52,8 @@ AWSWebSocketClient awsWSclient(1000);
 
 IPStack ipstack(awsWSclient);
 MQTT::Client<IPStack, Countdown, maxMQTTpackageSize, maxMQTTMessageHandlers> *client = NULL;
+
+DHT dht(AM2302_WIRE_BUS, DHTTYPE);
 
 //# of connections
 long connection = 0;
@@ -147,12 +158,43 @@ void subscribe () {
 }
 
 //send a message to a mqtt topic
+// void sendmessage () {
+//     //send a message
+//     MQTT::Message message;
+//     char buf[100];
+//     strcpy(buf, "{\"state\":{\"reported\":{\"on\": false}, \"desired\":{\"on\": false}}}");
+//     message.qos = MQTT::QOS0;
+//     message.retained = false;
+//     message.dup = false;
+//     message.payload = (void*)buf;
+//     message.payloadlen = strlen(buf)+1;
+//     int rc = client->publish(aws_topic, message);
+// }
+
 void sendmessage () {
     //send a message
     MQTT::Message message;
     char buf[100];
-    strcpy(buf, "{\"state\":{\"reported\":{\"on\": false}, \"desired\":{\"on\": false}}}");
-    message.qos = MQTT::QOS0;
+
+
+    float h = dht.readHumidity();
+
+    // Read temperature as Celsius
+    float t = dht.readTemperature();
+
+    char strTemperature[8];
+    char strRH[8];
+
+    dtostrf(t, 2, 2, strTemperature);
+    dtostrf(h, 2, 2, strRH);
+    //String messagebody = String( "{\"state\":{") + "\"temperature\":\"" + strTemperature + "\"" + ", \"humidity\":\"" + strRH + "\"" "}}"  ;
+    String messagebody = String( "{\"state\":{") + "\"desired\":{" + "\"temperature\":\"" + strTemperature + "\"" + ", \"humidity\":\"" + strRH + "\"" "}}}"  ;
+    Serial.println(aws_topic);
+    Serial.println(messagebody);
+
+    strcpy(buf, messagebody.c_str());
+    //strcpy(buf, "{\"state\":{\"reported\":{\"temperature\": false}, \"desired\":{\"on\": false}}}");
+    message.qos = MQTT::QOS1;
     message.retained = false;
     message.dup = false;
     message.payload = (void*)buf;
@@ -166,11 +208,15 @@ void setup() {
     delay (2000);
     Serial.setDebugOutput(1);
 
+    dht.begin();
+
     //fill with ssid and wifi password
-    WiFiMulti.addAP(wifi_ssid, wifi_password);
+    //WiFiMulti.addAP(wifi_ssid, wifi_password);
+    WiFi.begin(wifi_ssid, wifi_password);
+
     Serial.println ("connecting to wifi");
-    while(WiFiMulti.run() != WL_CONNECTED) {
-        delay(100);
+    while(WiFi.status() != WL_CONNECTED) {
+        delay(500);
         Serial.print (".");
     }
     Serial.println ("\nconnected");
@@ -193,11 +239,12 @@ void loop() {
   //keep the mqtt up and running
   if (awsWSclient.connected ()) {
       client->yield();
+      sendmessage();
   } else {
     //handle reconnection
     if (connect ()){
       subscribe ();
     }
   }
-
+  delay (60000);
 }
