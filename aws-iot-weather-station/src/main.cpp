@@ -32,9 +32,10 @@
 #define DHTTYPE DHT22   // DHT 22  (AM2302)
 
 
-
+ADC_MODE(ADC_VCC);
 #include "wifi_config.h"
 #include "aws-iot-config.h"
+
 
 //AWS IOT config, change these:
 char wifi_ssid[]       = WIFI_SSID;
@@ -236,6 +237,9 @@ void setup() {
 }
 
 void loop() {
+  long voltage = ESP.getVcc();
+  Serial.print("Voltage is ");
+  Serial.println(voltage);
   //keep the mqtt up and running
   if (awsWSclient.connected ()) {
       client->yield();
@@ -243,8 +247,8 @@ void loop() {
   } else {
     //handle reconnection
     if (connect ()){
-      subscribe ();
+//      subscribe ();
     }
   }
-  delay (60000);
+  ESP.deepSleep(15 * 60* 1000000);
 }
