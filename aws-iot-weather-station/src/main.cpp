@@ -27,16 +27,11 @@
 #include <CircularByteBuffer.h>
 
 #include "wifi_config.h"
+#include "aws-iot-config.h"
 
 //AWS IOT config, change these:
 char wifi_ssid[]       = WIFI_SSID;
 char wifi_password[]   = WIFI_PASSWORD;
-char aws_endpoint[]    = "your-endpoint.iot.eu-west-1.amazonaws.com";
-char aws_key[]         = "your-iam-key";
-char aws_secret[]      = "your-iam-secret-key";
-char aws_region[]      = "eu-west-1";
-const char* aws_topic  = "$aws/things/your-device/shadow/update";
-int port = 443;
 
 //MQTT config
 const int maxMQTTpackageSize = 512;
