@@ -2,7 +2,8 @@
 #include <Stream.h>
 
 #include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
+ADC_MODE(ADC_VCC);
+//#include <ESP8266WiFiMulti.h>
 
 //AWS
 #include <sha256.h>
@@ -32,7 +33,7 @@
 #define DHTTYPE DHT22   // DHT 22  (AM2302)
 
 
-ADC_MODE(ADC_VCC);
+
 #include "wifi_config.h"
 #include "aws-iot-config.h"
 
@@ -47,7 +48,7 @@ char wifi_password[]   = WIFI_PASSWORD;
 const int maxMQTTpackageSize = 512;
 const int maxMQTTMessageHandlers = 1;
 
-ESP8266WiFiMulti WiFiMulti;
+//ESP8266WiFiMulti WiFiMulti;
 
 AWSWebSocketClient awsWSclient(1000);
 
@@ -188,15 +189,22 @@ void sendmessage () {
 
     dtostrf(t, 2, 2, strTemperature);
     dtostrf(h, 2, 2, strRH);
+
+    double voltage = ESP.getVcc()/1000.0;
+    //Serial.print("Voltage is ");
+    //Serial.println(voltage);
+
+
     //String messagebody = String( "{\"state\":{") + "\"temperature\":\"" + strTemperature + "\"" + ", \"humidity\":\"" + strRH + "\"" "}}"  ;
-    String messagebody = String( "{\"state\":{") + "\"desired\":{" + "\"temperature\":\"" + strTemperature + "\"" + ", \"humidity\":\"" + strRH + "\"" "}}}"  ;
+    String messagebody = String( "{\"state\":{") + "\"reported\":{" + "\"temperature\":\"" + t + "\"" + ", \"humidity\":\"" + h + "\"" + ", \"voltage\":\"" + voltage + "\"" "}}}"  ;
+
     Serial.println(aws_topic);
     Serial.println(messagebody);
 
     strcpy(buf, messagebody.c_str());
     //strcpy(buf, "{\"state\":{\"reported\":{\"temperature\": false}, \"desired\":{\"on\": false}}}");
     message.qos = MQTT::QOS1;
-    message.retained = false;
+    message.retained = true;
     message.dup = false;
     message.payload = (void*)buf;
     message.payloadlen = strlen(buf)+1;
@@ -237,9 +245,7 @@ void setup() {
 }
 
 void loop() {
-  long voltage = ESP.getVcc();
-  Serial.print("Voltage is ");
-  Serial.println(voltage);
+
   //keep the mqtt up and running
   if (awsWSclient.connected ()) {
       client->yield();
@@ -251,4 +257,5 @@ void loop() {
     }
   }
   ESP.deepSleep(15 * 60* 1000000);
+  //ESP.deepSleep(1 * 60* 1000000);
 }
