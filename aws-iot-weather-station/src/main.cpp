@@ -221,6 +221,8 @@ void setup() {
 
     //fill with ssid and wifi password
     //WiFiMulti.addAP(wifi_ssid, wifi_password);
+    //WiFi.setOutputPower(0);
+    WiFi.mode(WIFI_STA);
     WiFi.begin(wifi_ssid, wifi_password);
 
     Serial.println ("connecting to wifi");
@@ -256,6 +258,6 @@ void loop() {
 //      subscribe ();
     }
   }
-  ESP.deepSleep(15 * 60* 1000000);
-  //ESP.deepSleep(1 * 60* 1000000);
+  ESP.deepSleep(15 * 60* 1000000,WAKE_RF_DEFAULT);
+  //ESP.deepSleep(1 * 60* 1000000,WAKE_RF_DEFAULT);
 }
