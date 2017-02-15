@@ -186,13 +186,18 @@ void sendmessage () {
 
   char strTemperature[8];
   char strRH[8];
+  if (isnan(h) || isnan(t)){
+    Serial.println("Bad sample values. Quitting");
+    return;
+  }
+
+  Serial.println(h);
+  Serial.println(t);
 
   dtostrf(t, 2, 2, strTemperature);
   dtostrf(h, 2, 2, strRH);
 
   double voltage = ESP.getVcc()/1000.0;
-  //Serial.print("Voltage is ");
-  //Serial.println(voltage);
 
 
   //String messagebody = String( "{\"state\":{") + "\"temperature\":\"" + strTemperature + "\"" + ", \"humidity\":\"" + strRH + "\"" "}}"  ;
@@ -214,19 +219,33 @@ void sendmessage () {
 
 void setup() {
   Serial.begin (115200);
+  WiFi.mode(WIFI_OFF);
+  //WiFi.disconnect(true);
+
+  //Warm up the DHT and sleep for it to be fully operational.
+  //Needs about 2 seconds as per AM2302 datasheet
+  dht.begin();
   delay (2000);
+
   Serial.setDebugOutput(1);
 
-  dht.begin();
-
-  //fill with ssid and wifi password
-  //WiFiMulti.addAP(wifi_ssid, wifi_password);
-  //WiFi.setOutputPower(0);
+  //Setup Wifi
   WiFi.mode(WIFI_STA);
+  WiFi.persistent(false);
+  WiFi.setAutoReconnect(false);
   WiFi.begin(wifi_ssid, wifi_password);
+  WiFi.printDiag(Serial);
 
   Serial.println ("connecting to wifi");
-  while(WiFi.status() != WL_CONNECTED) {
+  int starttime = millis();
+  while(WiFi.status() != WL_CONNECTED)
+  {
+    if (starttime + 10000 < millis() ){
+      //Goto sleep
+      WiFi.disconnect(true);
+      ESP.deepSleep(60 * 60* 1000000U,WAKE_RF_DEFAULT);
+    }
+
     delay(500);
     Serial.print (".");
   }
@@ -239,25 +258,29 @@ void setup() {
   awsWSclient.setAWSSecretKey(aws_secret);
   awsWSclient.setUseSSL(true);
 
-  if (connect ()) {
-    subscribe ();
-    sendmessage ();
-  }
-
+  // if (connect ()) {
+  //   subscribe ();
+  //   sendmessage ();
+  // }
+  connect ();
 }
 
 void loop() {
 
-  //keep the mqtt up and running
-  if (awsWSclient.connected ()) {
-    client->yield();
+
+  //Check if connected
+  if (awsWSclient.connected ())
+  {
     sendmessage();
-  } else {
-    //handle reconnection
-    if (connect ()) {
-//      subscribe ();
-    }
   }
-  ESP.deepSleep(15 * 60* 1000000,WAKE_RF_DEFAULT);
-  //ESP.deepSleep(1 * 60* 1000000,WAKE_RF_DEFAULT);
+
+  //Get Ready to sleep.
+  {
+    Serial.println("Going to sleep...");
+    WiFi.disconnect(true);
+    ESP.deepSleep(60 * 60* 1000000U,WAKE_RF_DEFAULT);
+    ///Need a delay to
+    //delay(1000);
+  }
+
 }
