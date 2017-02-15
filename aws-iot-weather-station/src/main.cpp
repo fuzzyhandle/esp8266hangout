@@ -96,67 +96,67 @@ void messageArrived(MQTT::MessageData& md)
 //connects to websocket layer and mqtt layer
 bool connect () {
 
-    if (client == NULL) {
-      client = new MQTT::Client<IPStack, Countdown, maxMQTTpackageSize, maxMQTTMessageHandlers>(ipstack);
-    } else {
+  if (client == NULL) {
+    client = new MQTT::Client<IPStack, Countdown, maxMQTTpackageSize, maxMQTTMessageHandlers>(ipstack);
+  } else {
 
-      if (client->isConnected ()) {
-        client->disconnect ();
-      }
-      delete client;
-      client = new MQTT::Client<IPStack, Countdown, maxMQTTpackageSize, maxMQTTMessageHandlers>(ipstack);
+    if (client->isConnected ()) {
+      client->disconnect ();
     }
+    delete client;
+    client = new MQTT::Client<IPStack, Countdown, maxMQTTpackageSize, maxMQTTMessageHandlers>(ipstack);
+  }
 
 
-    //delay is not necessary... it just help us to get a "trustful" heap space value
-    delay (1000);
-    Serial.print (millis ());
-    Serial.print (" - conn: ");
-    Serial.print (++connection);
-    Serial.print (" - (");
-    Serial.print (ESP.getFreeHeap ());
-    Serial.println (")");
+  //delay is not necessary... it just help us to get a "trustful" heap space value
+  delay (1000);
+  Serial.print (millis ());
+  Serial.print (" - conn: ");
+  Serial.print (++connection);
+  Serial.print (" - (");
+  Serial.print (ESP.getFreeHeap ());
+  Serial.println (")");
 
 
 
 
-   int rc = ipstack.connect(aws_endpoint, port);
-    if (rc != 1)
-    {
-      Serial.println("error connection to the websocket server");
-      return false;
-    } else {
-      Serial.println("websocket layer connected");
-    }
+  int rc = ipstack.connect(aws_endpoint, port);
+  if (rc != 1)
+  {
+    Serial.println("error connection to the websocket server");
+    return false;
+  } else {
+    Serial.println("websocket layer connected");
+  }
 
 
-    Serial.println("MQTT connecting");
-    MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
-    data.MQTTVersion = 3;
-    char* clientID = generateClientID ();
-    data.clientID.cstring = clientID;
-    rc = client->connect(data);
-    delete[] clientID;
-    if (rc != 0)
-    {
-      Serial.print("error connection to MQTT server");
-      Serial.println(rc);
-      return false;
-    }
-    Serial.println("MQTT connected");
-    return true;
+  Serial.println("MQTT connecting");
+  MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
+  data.MQTTVersion = 3;
+  char* clientID = generateClientID ();
+  data.clientID.cstring = clientID;
+  rc = client->connect(data);
+  delete[] clientID;
+  if (rc != 0)
+  {
+    Serial.print("error connection to MQTT server");
+    Serial.println(rc);
+    return false;
+  }
+  Serial.println("MQTT connected");
+  return true;
 }
 
 //subscribe to a mqtt topic
 void subscribe () {
-   //subscript to a topic
-    int rc = client->subscribe(aws_topic, MQTT::QOS0, messageArrived);
-    if (rc != 0) {
-      Serial.print("rc from MQTT subscribe is ");
-      Serial.println(rc);
-      return;
-    }
-    Serial.println("MQTT subscribed");
+  //subscript to a topic
+  int rc = client->subscribe(aws_topic, MQTT::QOS0, messageArrived);
+  if (rc != 0) {
+    Serial.print("rc from MQTT subscribe is ");
+    Serial.println(rc);
+    return;
+  }
+  Serial.println("MQTT subscribed");
 }
 
 //send a message to a mqtt topic
@@ -174,75 +174,75 @@ void subscribe () {
 // }
 
 void sendmessage () {
-    //send a message
-    MQTT::Message message;
-    char buf[100];
+  //send a message
+  MQTT::Message message;
+  char buf[100];
 
 
-    float h = dht.readHumidity();
+  float h = dht.readHumidity();
 
-    // Read temperature as Celsius
-    float t = dht.readTemperature();
+  // Read temperature as Celsius
+  float t = dht.readTemperature();
 
-    char strTemperature[8];
-    char strRH[8];
+  char strTemperature[8];
+  char strRH[8];
 
-    dtostrf(t, 2, 2, strTemperature);
-    dtostrf(h, 2, 2, strRH);
+  dtostrf(t, 2, 2, strTemperature);
+  dtostrf(h, 2, 2, strRH);
 
-    double voltage = ESP.getVcc()/1000.0;
-    //Serial.print("Voltage is ");
-    //Serial.println(voltage);
+  double voltage = ESP.getVcc()/1000.0;
+  //Serial.print("Voltage is ");
+  //Serial.println(voltage);
 
 
-    //String messagebody = String( "{\"state\":{") + "\"temperature\":\"" + strTemperature + "\"" + ", \"humidity\":\"" + strRH + "\"" "}}"  ;
-    String messagebody = String( "{\"state\":{") + "\"reported\":{" + "\"temperature\":\"" + t + "\"" + ", \"humidity\":\"" + h + "\"" + ", \"voltage\":\"" + voltage + "\"" "}}}"  ;
+  //String messagebody = String( "{\"state\":{") + "\"temperature\":\"" + strTemperature + "\"" + ", \"humidity\":\"" + strRH + "\"" "}}"  ;
+  String messagebody = String( "{\"state\":{") + "\"reported\":{" + "\"temperature\":\"" + t + "\"" + ", \"humidity\":\"" + h + "\"" + ", \"voltage\":\"" + voltage + "\"" "}}}";
 
-    Serial.println(aws_topic);
-    Serial.println(messagebody);
+  Serial.println(aws_topic);
+  Serial.println(messagebody);
 
-    strcpy(buf, messagebody.c_str());
-    //strcpy(buf, "{\"state\":{\"reported\":{\"temperature\": false}, \"desired\":{\"on\": false}}}");
-    message.qos = MQTT::QOS1;
-    message.retained = true;
-    message.dup = false;
-    message.payload = (void*)buf;
-    message.payloadlen = strlen(buf)+1;
-    int rc = client->publish(aws_topic, message);
+  strcpy(buf, messagebody.c_str());
+  //strcpy(buf, "{\"state\":{\"reported\":{\"temperature\": false}, \"desired\":{\"on\": false}}}");
+  message.qos = MQTT::QOS1;
+  message.retained = true;
+  message.dup = false;
+  message.payload = (void*)buf;
+  message.payloadlen = strlen(buf)+1;
+  int rc = client->publish(aws_topic, message);
 }
 
 
 void setup() {
-    Serial.begin (115200);
-    delay (2000);
-    Serial.setDebugOutput(1);
+  Serial.begin (115200);
+  delay (2000);
+  Serial.setDebugOutput(1);
 
-    dht.begin();
+  dht.begin();
 
-    //fill with ssid and wifi password
-    //WiFiMulti.addAP(wifi_ssid, wifi_password);
-    //WiFi.setOutputPower(0);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(wifi_ssid, wifi_password);
+  //fill with ssid and wifi password
+  //WiFiMulti.addAP(wifi_ssid, wifi_password);
+  //WiFi.setOutputPower(0);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(wifi_ssid, wifi_password);
 
-    Serial.println ("connecting to wifi");
-    while(WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print (".");
-    }
-    Serial.println ("\nconnected");
+  Serial.println ("connecting to wifi");
+  while(WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print (".");
+  }
+  Serial.println ("\nconnected");
 
-    //fill AWS parameters
-    awsWSclient.setAWSRegion(aws_region);
-    awsWSclient.setAWSDomain(aws_endpoint);
-    awsWSclient.setAWSKeyID(aws_key);
-    awsWSclient.setAWSSecretKey(aws_secret);
-    awsWSclient.setUseSSL(true);
+  //fill AWS parameters
+  awsWSclient.setAWSRegion(aws_region);
+  awsWSclient.setAWSDomain(aws_endpoint);
+  awsWSclient.setAWSKeyID(aws_key);
+  awsWSclient.setAWSSecretKey(aws_secret);
+  awsWSclient.setUseSSL(true);
 
-    if (connect ()){
-      subscribe ();
-      sendmessage ();
-    }
+  if (connect ()) {
+    subscribe ();
+    sendmessage ();
+  }
 
 }
 
@@ -250,11 +250,11 @@ void loop() {
 
   //keep the mqtt up and running
   if (awsWSclient.connected ()) {
-      client->yield();
-      sendmessage();
+    client->yield();
+    sendmessage();
   } else {
     //handle reconnection
-    if (connect ()){
+    if (connect ()) {
 //      subscribe ();
     }
   }
