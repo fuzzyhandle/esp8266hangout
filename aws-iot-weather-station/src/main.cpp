@@ -225,7 +225,7 @@ void setup() {
   //Warm up the DHT and sleep for it to be fully operational.
   //Needs about 2 seconds as per AM2302 datasheet
   dht.begin();
-  delay (2000);
+  delay (3000);
 
   Serial.setDebugOutput(1);
 
@@ -266,8 +266,6 @@ void setup() {
 }
 
 void loop() {
-
-
   //Check if connected
   if (awsWSclient.connected ())
   {
@@ -279,8 +277,7 @@ void loop() {
     Serial.println("Going to sleep...");
     WiFi.disconnect(true);
     ESP.deepSleep(60 * 60* 1000000U,WAKE_RF_DEFAULT);
-    ///Need a delay to
-    //delay(1000);
+    ///Need a delay after calling deepsleep
+    delay(1000);
   }
-
 }
