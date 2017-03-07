@@ -29,6 +29,8 @@ ADC_MODE(ADC_VCC);
 
 #include <DHT.h>
 #include <DHT_U.h>
+
+
 #define AM2302_WIRE_BUS 4
 #define DHTTYPE DHT22   // DHT 22  (AM2302)
 
@@ -47,6 +49,8 @@ char wifi_password[]   = WIFI_PASSWORD;
 //MQTT config
 const int maxMQTTpackageSize = 512;
 const int maxMQTTMessageHandlers = 1;
+const uint deepSleepInterval = 30 * 60* 1000000U;
+const uint deepSleepIntervalOnError = 5 * 60* 1000000U;
 
 //ESP8266WiFiMulti WiFiMulti;
 
@@ -59,6 +63,8 @@ DHT dht(AM2302_WIRE_BUS, DHTTYPE);
 
 //# of connections
 long connection = 0;
+float h = 0.0f;
+float t = 0.0f;
 
 //generate random mqtt clientID
 char* generateClientID () {
@@ -172,24 +178,30 @@ void subscribe () {
 //     message.payloadlen = strlen(buf)+1;
 //     int rc = client->publish(aws_topic, message);
 // }
+bool readWeatherData()
+{
+  h = dht.readHumidity();
+  // Read temperature as Celsius
+  t = dht.readTemperature();
+
+  if (isnan(h) || isnan(t))
+  {
+    return false;
+  }
+  return true;
+}
 
 void sendmessage () {
   //send a message
   MQTT::Message message;
   char buf[100];
 
-
-  float h = dht.readHumidity();
-
-  // Read temperature as Celsius
-  float t = dht.readTemperature();
-
   char strTemperature[8];
   char strRH[8];
-  if (isnan(h) || isnan(t)){
-    Serial.println("Bad sample values. Quitting");
-    return;
-  }
+  // if (isnan(h) || isnan(t)){
+  //   Serial.println("Bad sample values. Quitting");
+  //   return;
+  // }
 
   Serial.println(h);
   Serial.println(t);
@@ -229,6 +241,14 @@ void setup() {
 
   Serial.setDebugOutput(1);
 
+  //read the data from sensor
+  if (!readWeatherData())
+  {
+    Serial.println("Bad sample values. Quitting");
+    ESP.deepSleep(deepSleepIntervalOnError,WAKE_RF_DEFAULT);
+    delay(1000);
+  }
+
   //Setup Wifi
   WiFi.mode(WIFI_STA);
   WiFi.persistent(false);
@@ -240,12 +260,13 @@ void setup() {
   int starttime = millis();
   while(WiFi.status() != WL_CONNECTED)
   {
-    if (starttime + 10000 < millis() ){
+    if (starttime + 15000 < millis() )
+    {
       //Goto sleep
       WiFi.disconnect(true);
-      ESP.deepSleep(60 * 60* 1000000U,WAKE_RF_DEFAULT);
+      ESP.deepSleep(deepSleepIntervalOnError,WAKE_RF_DEFAULT);
+      delay(1000);
     }
-
     delay(500);
     Serial.print (".");
   }
@@ -276,7 +297,7 @@ void loop() {
   {
     Serial.println("Going to sleep...");
     WiFi.disconnect(true);
-    ESP.deepSleep(60 * 60* 1000000U,WAKE_RF_DEFAULT);
+    ESP.deepSleep(deepSleepInterval,WAKE_RF_DEFAULT);
     ///Need a delay after calling deepsleep
     delay(1000);
   }
