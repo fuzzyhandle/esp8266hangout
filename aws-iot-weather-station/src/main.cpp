@@ -49,7 +49,7 @@ char wifi_password[]   = WIFI_PASSWORD;
 //MQTT config
 const int maxMQTTpackageSize = 512;
 const int maxMQTTMessageHandlers = 1;
-const uint deepSleepInterval = 30 * 60* 1000000U;
+const uint deepSleepInterval = 60 * 60* 1000000U;
 const uint deepSleepIntervalOnError = 5 * 60* 1000000U;
 
 //ESP8266WiFiMulti WiFiMulti;
