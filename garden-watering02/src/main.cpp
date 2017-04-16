@@ -73,20 +73,23 @@ void sleep_timerfunc_interval()
   long nextwakeuptime_seconds_from_midnight  = (nextwakeuptime % 86400L);
 
 
-  if (seconds_from_midnight < v2_irrigation_min_starttime and nextwakeuptime_seconds_from_midnight > v2_irrigation_min_starttime)
+  if (seconds_from_midnight < v2_irrigation_min_starttime )
   {
-    BLYNK_LOG("Will be waking up early. In time for the begining of the irrigation window");
-    /*BLYNK_LOG("%d" , seconds_from_midnight);
-    BLYNK_LOG("%d" ,v2_irrigation_min_starttime);
-    BLYNK_LOG("%d",nextwakeuptime_seconds_from_midnight);
-    BLYNK_LOG("%d", v2_irrigation_min_starttime);
-    */
-    sleepinterval =  nextwakeuptime_seconds_from_midnight - v2_irrigation_min_starttime;
+    if (nextwakeuptime_seconds_from_midnight > v2_irrigation_min_starttime)
+    {
+      BLYNK_LOG("Will be waking up early. In time for the begining of the irrigation window");
+      /*BLYNK_LOG("%d" , seconds_from_midnight);
+      BLYNK_LOG("%d" ,v2_irrigation_min_starttime);
+      BLYNK_LOG("%d",nextwakeuptime_seconds_from_midnight);
+      BLYNK_LOG("%d", v2_irrigation_min_starttime);
+      */
+      sleepinterval =  nextwakeuptime_seconds_from_midnight - v2_irrigation_min_starttime;
+    }
   }
-  else if (nextwakeuptime_seconds_from_midnight > (v4_irrigation_last_dose + v6_irrigation_dosage_interval))
+  else if (nextwakeuptime > (v4_irrigation_last_dose + v6_irrigation_dosage_interval))
   {
     BLYNK_LOG("Will be waking up early. In time for the next irrigation cycle.");
-    sleepinterval =  nextwakeuptime_seconds_from_midnight - (v4_irrigation_last_dose + v6_irrigation_dosage_interval);
+    sleepinterval =  nextwakeuptime - (v4_irrigation_last_dose + v6_irrigation_dosage_interval);
   }
 
   BLYNK_LOG("Starting to Sleep for %d seconds", sleepinterval);
