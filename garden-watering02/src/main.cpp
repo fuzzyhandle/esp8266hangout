@@ -8,6 +8,7 @@
 #include <WiFiUdp.h>
 #include <NTPClient.h>
 #include <SimpleTimer.h>
+ADC_MODE(ADC_VCC);
 
 //*******************************
 //Define Constants
@@ -62,8 +63,34 @@ void sleep_timerfunc_interval()
     return;
   }
 
-  BLYNK_LOG("Starting to Sleep for %d minutes", v1_sleepinterval);
-  ESP.deepSleep(60 * v1_sleepinterval * 1000000,RF_DEFAULT);
+  int sleepinterval = v1_sleepinterval * 60;
+
+  long epoch =  ntpclient.getEpochTime();
+  long seconds_from_midnight= (epoch % 86400L);
+
+  long nextwakeuptime = epoch + (v1_sleepinterval * 60);
+  //check if we need to wake up earlier
+  long nextwakeuptime_seconds_from_midnight  = (nextwakeuptime % 86400L);
+
+
+  if (seconds_from_midnight < v2_irrigation_min_starttime and nextwakeuptime_seconds_from_midnight > v2_irrigation_min_starttime)
+  {
+    BLYNK_LOG("Will be waking up early. In time for the begining of the irrigation window");
+    /*BLYNK_LOG("%d" , seconds_from_midnight);
+    BLYNK_LOG("%d" ,v2_irrigation_min_starttime);
+    BLYNK_LOG("%d",nextwakeuptime_seconds_from_midnight);
+    BLYNK_LOG("%d", v2_irrigation_min_starttime);
+    */
+    sleepinterval =  nextwakeuptime_seconds_from_midnight - v2_irrigation_min_starttime;
+  }
+  else if (nextwakeuptime_seconds_from_midnight > (v4_irrigation_last_dose + v6_irrigation_dosage_interval))
+  {
+    BLYNK_LOG("Will be waking up early. In time for the next irrigation cycle.");
+    sleepinterval =  nextwakeuptime_seconds_from_midnight - (v4_irrigation_last_dose + v6_irrigation_dosage_interval);
+  }
+
+  BLYNK_LOG("Starting to Sleep for %d seconds", sleepinterval);
+  ESP.deepSleep(sleepinterval * 1000000,RF_DEFAULT);
   delay(1000);
 }
 
@@ -138,7 +165,10 @@ BLYNK_WRITE(V7) // There is a Widget that WRITEs data to V4
   v7_override = param.asInt();
   BLYNK_LOG ("Change Override Switch %d",v7_override);
 }
-
+BLYNK_WRITE(V8) // There is a Widget that WRITEs data to V8
+{
+  BLYNK_LOG ("V8 is just a display text. It has no variable in h/w");
+}
 
 void setup(/* arguments */) {
   /* code */
@@ -196,6 +226,11 @@ void dowork()
   BLYNK_LOG ("Time between consecutive cycles %d",v6_irrigation_dosage_interval);
 
   BLYNK_LOG ("Seconds since start of day %d",seconds_since_start_of_day);
+
+  double voltage = ESP.getVcc()/1000.0;
+
+  Blynk.virtualWrite(V8, voltage);
+
   if (v0_masterswitch == HIGH)
   {
     BLYNK_LOG ("Override is %d", v7_override);
