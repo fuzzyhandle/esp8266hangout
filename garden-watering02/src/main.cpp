@@ -86,12 +86,14 @@ void sleep_timerfunc_interval()
       sleepinterval =  nextwakeuptime_seconds_from_midnight - v2_irrigation_min_starttime;
     }
   }
-  else if (nextwakeuptime > (v4_irrigation_last_dose + v6_irrigation_dosage_interval))
+  else if (nextwakeuptime_seconds_from_midnight <= v2_irrigation_max_endtime)
   {
-    BLYNK_LOG("Will be waking up early. In time for the next irrigation cycle.");
-    sleepinterval =  nextwakeuptime - (v4_irrigation_last_dose + v6_irrigation_dosage_interval);
+    if (nextwakeuptime > (v4_irrigation_last_dose + v6_irrigation_dosage_interval))
+    {
+      BLYNK_LOG("Will be waking up early. In time for the next irrigation cycle.");
+      sleepinterval =  (v4_irrigation_last_dose + v6_irrigation_dosage_interval) - epoch;
+    }
   }
-
   BLYNK_LOG("Starting to Sleep for %d seconds", sleepinterval);
   ESP.deepSleep(sleepinterval * 1000000,RF_DEFAULT);
   delay(1000);
