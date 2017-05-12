@@ -68,6 +68,7 @@ char* generateClientID () {
 int arrivedcount = 0;
 
 //callback to handle mqtt messages
+//callback to handle mqtt messages
 void messageArrived(MQTT::MessageData& md)
 {
   MQTT::Message &message = md.message;
@@ -144,9 +145,10 @@ bool connect () {
 }
 
 //subscribe to a mqtt topic
-void subscribe () {
+void subscribe_get_shadow () {
+  Serial.println("Subscribing to get shadow");
   //subscript to a topic
-  int rc = client->subscribe(aws_topic, MQTT::QOS0, messageArrived);
+  int rc = client->subscribe(aws_topic_get_accepted, MQTT::QOS0, messageArrived);
   if (rc != 0) {
     Serial.print("rc from MQTT subscribe is ");
     Serial.println(rc);
@@ -155,21 +157,7 @@ void subscribe () {
   Serial.println("MQTT subscribed");
 }
 
-//send a message to a mqtt topic
-// void sendmessage () {
-//     //send a message
-//     MQTT::Message message;
-//     char buf[100];
-//     strcpy(buf, "{\"state\":{\"reported\":{\"on\": false}, \"desired\":{\"on\": false}}}");
-//     message.qos = MQTT::QOS0;
-//     message.retained = false;
-//     message.dup = false;
-//     message.payload = (void*)buf;
-//     message.payloadlen = strlen(buf)+1;
-//     int rc = client->publish(aws_topic, message);
-// }
-
-void sendmessage () {
+void sendmessage1 () {
   //send a message
   MQTT::Message message;
   char buf[100];
@@ -190,6 +178,27 @@ void sendmessage () {
   int rc = client->publish(aws_topic, message);
 }
 
+void sendmessage_to_read_shadow () {
+  Serial.println("Publishing to get shadow");
+
+  //send a message
+  MQTT::Message message;
+  char buf[100];
+
+  String messagebody = "{}";
+
+  Serial.println(aws_topic_get);
+  Serial.println(messagebody);
+
+  strcpy(buf, messagebody.c_str());
+  //strcpy(buf, "{\"state\":{\"reported\":{\"temperature\": false}, \"desired\":{\"on\": false}}}");
+  message.qos = MQTT::QOS1;
+  message.retained = true;
+  message.dup = false;
+  message.payload = (void*)buf;
+  message.payloadlen = strlen(buf)+1;
+  int rc = client->publish(aws_topic_get, message);
+}
 
 void setup() {
   Serial.begin (115200);
@@ -227,6 +236,8 @@ void setup() {
   }
   Serial.println ("\nconnected");
 
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+
   //fill AWS parameters
   awsWSclient.setAWSRegion(aws_region);
   awsWSclient.setAWSDomain(aws_endpoint);
@@ -234,26 +245,27 @@ void setup() {
   awsWSclient.setAWSSecretKey(aws_secret);
   awsWSclient.setUseSSL(true);
 
-  // if (connect ()) {
-  //   subscribe ();
-  //   sendmessage ();
-  // }
-  connect ();
+  if (connect ())
+  {
+      subscribe_get_shadow();
+      sendmessage_to_read_shadow();
+  }
 }
+
 
 void loop() {
   //Check if connected
   if (awsWSclient.connected ())
   {
-    sendmessage();
+     client->yield();
   }
-
-  //Get Ready to sleep.
+  else
   {
-    Serial.println("Going to sleep...");
-    WiFi.disconnect(true);
-    ESP.deepSleep(deepSleepInterval,WAKE_RF_DEFAULT);
-    ///Need a delay after calling deepsleep
-    delay(1000);
+    Serial.println ("Reconnecting");
+    if (connect ())
+    {
+      subscribe_get_shadow();
+      sendmessage_to_read_shadow();
+    }
   }
 }
