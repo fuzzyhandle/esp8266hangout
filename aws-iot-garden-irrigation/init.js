@@ -3,14 +3,9 @@ load('api_gpio.js');
 load('api_timer.js');
 
 
-
 let PUMP_PIN = 4;
 GPIO.set_mode(PUMP_PIN, GPIO.MODE_OUTPUT)
 GPIO.set_pull(PUMP_PIN, GPIO.PULL_DOWN)
-
-let state = {
-  heartbeat: 0,
-};
 
 
 function reportState() {
