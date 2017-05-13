@@ -81,7 +81,9 @@ AWS.Shadow.setStateHandler(function(ud, ev, reported, desired, reported_md, desi
 }, null);
 
 
-function waternow(dosagesize){
+function waternow(dosagesize)
+{
+    print ("Stating the Pump")
     let updRes = AWS.Shadow.update(0, {
       desired: {
         waternow: false,
@@ -90,14 +92,14 @@ function waternow(dosagesize){
     
     GPIO.write(PUMP_PIN, 1);
     
- /*   Timer.set(dosagesize * 1000, false, function() {
+    Timer.set(dosagesize * 1000, false, function() {
       GPIO.write(PUMP_PIN, 0);
       let updRes = AWS.Shadow.update(0, {
       reported: {
         lastwatering: Timer.now(),
       },
     }); 
-    
+    print ("Stopped the Pump");
     }, null);
-   */ 
+   
 }
