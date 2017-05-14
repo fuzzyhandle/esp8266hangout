@@ -4,8 +4,10 @@ load('api_timer.js');
 
 
 let PUMP_PIN = 4;
-GPIO.set_mode(PUMP_PIN, GPIO.MODE_OUTPUT)
-GPIO.set_pull(PUMP_PIN, GPIO.PULL_DOWN)
+let irrigationinprogress = false;
+
+GPIO.set_mode(PUMP_PIN, GPIO.MODE_OUTPUT);
+
 
 
 function reportState() {
@@ -64,11 +66,14 @@ AWS.Shadow.setStateHandler(function(ud, ev, reported, desired, reported_md, desi
     reportState();
   }*/
   
-  if (desired.waternow !== undefined)
+  let enabled = desired.enabled !== undefined ? desired.enabled: false;
+  print ("System is enabled", enabled);
+  
+  if (enabled && desired.waternow !== undefined)
   {
     //We need to start the pump
-    let startwater = desired.waternow;
-    if (desired.waternow)
+    let startwater = (desired.waternow && (!irrigationinprogress)) ;
+    if (startwater)
     {
       let dosagesize = 10; //Default value
       if (desired.dosagesize !== undefined)
@@ -83,23 +88,39 @@ AWS.Shadow.setStateHandler(function(ud, ev, reported, desired, reported_md, desi
 
 function waternow(dosagesize)
 {
-    print ("Stating the Pump")
-    let updRes = AWS.Shadow.update(0, {
+    print ("Starting the Pump")
+    irrigationinprogress = true;
+    
+    //Set watering flag to false to stop another trigger
+    AWS.Shadow.update(0, {
       desired: {
         waternow: false,
       },
-    }); 
+    });
     
     GPIO.write(PUMP_PIN, 1);
     
     Timer.set(dosagesize * 1000, false, function() {
       GPIO.write(PUMP_PIN, 0);
+
       let updRes = AWS.Shadow.update(0, {
       reported: {
         lastwatering: Timer.now(),
       },
+      desired:{
+        waternow: false,
+      }
     }); 
     print ("Stopped the Pump");
+    irrigationinprogress = false;
     }, null);
    
 }
+
+/*
+Timer.set(10 * 1000, true, function() {
+  if (!irrigationinprogress)
+  {
+    print ("Ready to go to sleep");
+  }
+});*/
