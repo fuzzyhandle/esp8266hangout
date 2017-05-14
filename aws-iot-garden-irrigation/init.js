@@ -117,10 +117,16 @@ function waternow(dosagesize)
    
 }
 
-/*
-Timer.set(10 * 1000, true, function() {
+
+
+Timer.set(20 * 1000, true, function() {
   if (!irrigationinprogress)
   {
     print ("Ready to go to sleep");
   }
-});*/
+  else
+  {
+    print ("Need to wait before going to sleep");
+  }
+}, null);
+
