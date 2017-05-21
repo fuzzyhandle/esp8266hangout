@@ -1,6 +1,7 @@
 load('api_aws.js');
 load('api_gpio.js');
 load('api_timer.js');
+load('api_sys.js');
 
 
 let PUMP_PIN = 4;
@@ -119,10 +120,11 @@ function waternow(dosagesize)
 
 
 
-Timer.set(20 * 1000, true, function() {
+Timer.set(30 * 1000, true, function() {
   if (!irrigationinprogress)
   {
     print ("Ready to go to sleep");
+    Sys.deepsleep(3600000000);
   }
   else
   {
