@@ -3,9 +3,12 @@ load('api_gpio.js');
 load('api_timer.js');
 load('api_sys.js');
 
-
 let PUMP_PIN = 4;
+let DEFAULT_DEEP_SLEEP_INTERVAL =  60 * 60;
+
 let irrigationinprogress = false;
+
+let sleepinterval = DEFAULT_DEEP_SLEEP_INTERVAL;
 
 GPIO.set_mode(PUMP_PIN, GPIO.MODE_OUTPUT);
 
@@ -68,6 +71,8 @@ AWS.Shadow.setStateHandler(function(ud, ev, reported, desired, reported_md, desi
   }*/
   
   let enabled = desired.enabled !== undefined ? desired.enabled: false;
+  sleepinterval = desired.sleepinterval !== undefined ? desired.sleepinterval: sleepinterval;
+  
   print ("System is enabled", enabled);
   
   if (enabled && desired.waternow !== undefined)
@@ -96,6 +101,7 @@ function waternow(dosagesize)
     AWS.Shadow.update(0, {
       desired: {
         waternow: false,
+	sleepinterval : DEFAULT_DEEP_SLEEP_INTERVAL,
       },
     });
     
@@ -110,6 +116,7 @@ function waternow(dosagesize)
       },
       desired:{
         waternow: false,
+        sleepinterval : DEFAULT_DEEP_SLEEP_INTERVAL,
       }
     }); 
     print ("Stopped the Pump");
@@ -118,13 +125,11 @@ function waternow(dosagesize)
    
 }
 
-
-
 Timer.set(30 * 1000, true, function() {
   if (!irrigationinprogress)
   {
-    print ("Ready to go to sleep");
-    Sys.deepsleep(3600000000);
+    print ("Ready to go to sleep for ", sleepinterval);
+    Sys.deepsleep(sleepinterval * 1000* 1000);
   }
   else
   {
