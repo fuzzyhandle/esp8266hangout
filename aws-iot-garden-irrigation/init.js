@@ -2,6 +2,7 @@ load('api_aws.js');
 load('api_gpio.js');
 load('api_timer.js');
 load('api_sys.js');
+load('api_adc.js');
 
 let PUMP_PIN = 4;
 let DEFAULT_DEEP_SLEEP_INTERVAL =  60 * 60;
@@ -15,7 +16,10 @@ GPIO.set_mode(PUMP_PIN, GPIO.MODE_OUTPUT);
 
 
 function reportState() {
-  let state1 = {heartbeat:Timer.now()};
+  let state1 = {
+                heartbeat:Timer.now(),
+                voltagescale: ADC.read(0)
+               };
   
   print('Reporting state:', JSON.stringify(state1));
   
