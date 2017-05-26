@@ -4,6 +4,8 @@ load('api_timer.js');
 load('api_sys.js');
 load('api_adc.js');
 
+load('custom.js');
+
 let PUMP_PIN = 4;
 let DEFAULT_DEEP_SLEEP_INTERVAL =  60 * 60;
 
@@ -32,20 +34,6 @@ let BUTTON_GPIO = 0;
 let BUTTON_PULL = GPIO.PULL_UP;
 let BUTTON_EDGE = GPIO.INT_EDGE_POS;
 
-/*
-GPIO.set_button_handler(
-  BUTTON_GPIO, BUTTON_PULL, BUTTON_EDGE, 50 ,
-  function(pin, ud) {
-    let updRes = AWS.Shadow.update(0, {
-      desired: {
-        welcome: state.welcome + 1,
-      },
-    });
-    print("Click! Updated:", updRes);
-  }, null
-);
-*/
-
 AWS.Shadow.setStateHandler(function(ud, ev, reported, desired, reported_md, desired_md) {
   print('Event:', ev, '('+AWS.Shadow.eventName(ev)+')');
 
@@ -60,19 +48,6 @@ AWS.Shadow.setStateHandler(function(ud, ev, reported, desired, reported_md, desi
 
   print('Reported state:', JSON.stringify(reported));
   print('Desired state :', JSON.stringify(desired));
-
-  /*
-   * Here we extract values from previosuly reported state (if any)
-   * and then override it with desired state (if present).
-   */
-  //updateState(reported);
-  //updateState(desired);
-
-  //print('New state:', JSON.stringify(state));
-
-  /*if (ev === AWS.Shadow.UPDATE_DELTA) {
-    reportState();
-  }*/
   
   let enabled = desired.enabled !== undefined ? desired.enabled: false;
   sleepinterval = desired.sleepinterval !== undefined ? desired.sleepinterval: sleepinterval;
@@ -90,50 +65,53 @@ AWS.Shadow.setStateHandler(function(ud, ev, reported, desired, reported_md, desi
       {
         dosagesize = desired.dosagesize;
       }
-      waternow(dosagesize);
+      Timer.set(0, false, function() {
+        startpump();
+      },null);
+      
+      //pump starts at the end of the function
+      //You may need to increase timeout by a few seconds to compensate
+      Timer.set( dosagesize * 1000 , false, function() {
+        stoppump();
+      },null);
+      
     }
   }
 }, null);
 
 
-function waternow(dosagesize)
+function startpump()
 {
-    print ("Starting the Pump")
+    print (Timer.now());
+    print ("Updating Shadow")
     irrigationinprogress = true;
-    
     //Set watering flag to false to stop another trigger
     AWS.Shadow.update(0, {
-      desired: {
-        waternow: false,
-	sleepinterval : DEFAULT_DEEP_SLEEP_INTERVAL,
-      },
-    });
-    
-    GPIO.write(PUMP_PIN, 1);
-    
-    Timer.set(dosagesize * 1000, false, function() {
-      GPIO.write(PUMP_PIN, 0);
-
-      let updRes = AWS.Shadow.update(0, {
       reported: {
         lastwatering: Timer.now(),
       },
-      desired:{
+      desired: {
         waternow: false,
-        sleepinterval : DEFAULT_DEEP_SLEEP_INTERVAL,
-      }
-    }); 
+	    sleepinterval : DEFAULT_DEEP_SLEEP_INTERVAL,
+      },
+    });
+    print ("Starting the Pump");
+    GPIO.write(PUMP_PIN, 1);
+}
+
+function stoppump(dosagesize)
+{
+    print (Timer.now());
     print ("Stopped the Pump");
+    GPIO.write(PUMP_PIN, 0);
     irrigationinprogress = false;
-    }, null);
-   
 }
 
 Timer.set(30 * 1000, true, function() {
   if (!irrigationinprogress)
   {
     print ("Ready to go to sleep for ", sleepinterval);
-    Sys.deepsleep(sleepinterval * 1000* 1000);
+    ExtraFuncs.deepsleep(sleepinterval * 1000* 1000);
   }
   else
   {
